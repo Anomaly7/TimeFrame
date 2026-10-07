@@ -66,10 +66,12 @@ def find_free_time(
     if target_date == now_tz.date():
         start_dt = max(start_dt, now_tz)
 
-    # Busy blocks only for this date
+    # Busy blocks that overlap this day's window, clipped to it - an event
+    # that started yesterday (overnight, or a multi-day all-day event)
+    # still blocks today.
     day_busy = [
-        (s, e) for s, e in busy_intervals
-        if s.date() == target_date
+        (max(s, start_dt), min(e, end_dt)) for s, e in busy_intervals
+        if s < end_dt and e > start_dt
     ]
 
     merged = merge_intervals(day_busy)

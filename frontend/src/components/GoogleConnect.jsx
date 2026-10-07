@@ -1,7 +1,8 @@
+import { API_URL } from "../config";
 export default function GoogleConnect({ connected }) {
 
   function connectGoogle() {
-    window.location.href = "https://calender-app-mm4q.onrender.com/auth/login";
+    window.location.href = `${API_URL}/auth/login`;
   }
 
   return (

@@ -1,5 +1,6 @@
+import re
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, Body, Depends, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from datetime import datetime, time, timedelta
 from app.availability import merge_intervals, find_free_time, score_slot
 from app.auth_utils import get_current_user
@@ -8,17 +9,27 @@ from app.db import conn
 router = APIRouter()
 PST = ZoneInfo("America/Los_Angeles")
 
+# Group codes are 8 characters from the frontend's alphabet; older links may
+# be UUIDs. Anything else is rejected.
+GROUP_ID_RE = re.compile(r"^[A-Za-z0-9-]{6,64}$")
+MAX_BLOCKS = 1000
+
+
+def is_member(group_id: str, user_id: str) -> bool:
+    rows = conn.execute("SELECT user_id FROM group_members WHERE group_id = ?", (group_id,)).fetchall()
+    return any(r[0].strip().lower() == user_id.strip().lower() for r in rows)
+
 @router.post("/availability/merge")
 def merge_users_availability(
     request: Request,
     users_busy: list = Body(...),
     user_id: str = Depends(get_current_user),
-    min_minutes: int = Query(30),
+    min_minutes: int = Query(30, ge=5, le=12 * 60),
     day_start: str = Query("08:00"),
     day_end: str = Query("22:00"),
     timezone: str = Query(None),
-    days: int = Query(1),
-    start_offset: int = Query(0)
+    days: int = Query(1, ge=1, le=62),
+    start_offset: int = Query(0, ge=-366, le=366)
     ):
 
     # The viewer's own current timezone - "today", business hours, and
@@ -30,11 +41,19 @@ def merge_users_availability(
         viewer_tz = PST
 
     # ---- Parse day bounds ----
-    day_start_time = time.fromisoformat(day_start)
-    day_end_time = time.fromisoformat(day_end)
+    try:
+        day_start_time = time.fromisoformat(day_start)
+        day_end_time = time.fromisoformat(day_end)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Day start/end must be times like 08:00.")
+    if day_end_time <= day_start_time:
+        raise HTTPException(status_code=400, detail="Day end must be after day start.")
 
     # ---- Normalize this request's manually-submitted busy blocks ----
     manual_blocks = []
+
+    if sum(len(u) if isinstance(u, list) else 1 for u in users_busy) > MAX_BLOCKS:
+        raise HTTPException(status_code=400, detail="Too many busy blocks in one request.")
 
     for user in users_busy:
 
@@ -50,8 +69,12 @@ def merge_users_availability(
                 start, end = block
                 title = ""
 
-            start_dt = datetime.fromisoformat(start) if isinstance(start, str) else start
-            end_dt = datetime.fromisoformat(end) if isinstance(end, str) else end
+            try:
+                start_dt = datetime.fromisoformat(start)
+                end_dt = datetime.fromisoformat(end)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Busy times must be ISO date-times.")
+            title = str(title)[:200]
 
             # A naive value (e.g. from the manual-entry form) means "in the
             # viewer's own current timezone" - not a fixed Pacific default.
@@ -65,6 +88,8 @@ def merge_users_availability(
             else:
                 end_dt = end_dt.astimezone(viewer_tz)
 
+            if end_dt <= start_dt:
+                continue  # empty or backwards block: nothing to block out
             manual_blocks.append((start_dt, end_dt, title))
 
     # Persist them so other group members can see this user's busy times too -
@@ -88,12 +113,16 @@ def merge_users_availability(
     today = datetime.now(viewer_tz).date()
     range_start = today + timedelta(days=start_offset)
     date_range = {range_start + timedelta(days=i) for i in range(days)}
+    window_start = datetime.combine(range_start, time.min, tzinfo=viewer_tz)
+    window_end = datetime.combine(range_start + timedelta(days=days), time.min, tzinfo=viewer_tz)
     member_ids = [user_id]
     seen_member_keys = {user_id.strip().lower()}
 
     group_id = request.query_params.get("group")
 
-    if group_id:
+    # Only members see a group's calendars. A non-member (wrong code, or the
+    # join hasn't gone through yet) just gets their own schedule.
+    if group_id and GROUP_ID_RE.match(group_id) and is_member(group_id, user_id):
         for row in conn.execute(
             "SELECT user_id FROM group_members WHERE group_id = ?",
             (group_id,)
@@ -117,9 +146,9 @@ def merge_users_availability(
             start_dt = datetime.fromisoformat(start).astimezone(viewer_tz)
             end_dt = datetime.fromisoformat(end).astimezone(viewer_tz)
 
-            # Only consider busy time that falls within the requested range -
-            # matches what find_free_time computes free time for.
-            if start_dt.date() not in date_range:
+            # Only consider busy time that overlaps the requested range -
+            # including events that started before it (overnight, multi-day).
+            if not (start_dt < window_end and end_dt > window_start):
                 continue
 
             # Duplicate rows can pile up from things like a stale duplicate
@@ -133,7 +162,7 @@ def merge_users_availability(
             all_busy.append((start_dt, end_dt))
 
             busy_output.append({
-                "date": start_dt.date().isoformat(),
+                "date": max(start_dt, window_start).date().isoformat(),
                 "start": start_dt.isoformat(),
                 "end": end_dt.isoformat(),
                 "label": {
@@ -152,7 +181,9 @@ def merge_users_availability(
     results = []
 
     for target_date in sorted(date_range):
-        day_busy_count = sum(1 for s, e in merged_busy if s.date() == target_date)
+        day_lo = datetime.combine(target_date, time.min, tzinfo=viewer_tz)
+        day_hi = day_lo + timedelta(days=1)
+        day_busy_count = sum(1 for s, e in merged_busy if s < day_hi and e > day_lo)
 
         free_slots = find_free_time(
             merged_busy,
@@ -181,6 +212,8 @@ def merge_users_availability(
 
 @router.post("/groups/join")
 def join_group(group_id: str = Query(...), user_id: str = Depends(get_current_user)):
+    if not GROUP_ID_RE.match(group_id):
+        raise HTTPException(status_code=400, detail="That group link isn't valid.")
     conn.execute(
         "INSERT INTO groups (id) VALUES (?) ON CONFLICT (id) DO NOTHING",
         (group_id,)

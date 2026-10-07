@@ -10,11 +10,15 @@ from app.db import conn
 
 router = APIRouter()
 PST = ZoneInfo("America/Los_Angeles")
+MAX_ICS_BYTES = 5 * 1024 * 1024
+MAX_EVENTS = 5000
 
 
 @router.post("/import/ics")
 async def import_ics(file: UploadFile = File(...), user_id: str = Depends(get_current_user)):
-    content = await file.read()
+    content = await file.read(MAX_ICS_BYTES + 1)
+    if len(content) > MAX_ICS_BYTES:
+        raise HTTPException(status_code=413, detail="That calendar file is too big (5 MB max).")
 
     try:
         calendar = icalendar.Calendar.from_ical(content)
@@ -39,10 +43,21 @@ async def import_ics(file: UploadFile = File(...), user_id: str = Depends(get_cu
 
     imported = 0
 
-    for event in events:
+    for event in events[:MAX_EVENTS]:
+        if event.get("dtstart") is None:
+            continue
         raw_start = event.get("dtstart").dt
-        raw_end = event.get("dtend").dt
-        title = str(event.get("summary") or "")
+        # DTEND is optional in .ics: fall back to DURATION, then to the start
+        # (a one-day block for all-day events, a zero-length one otherwise).
+        if event.get("dtend") is not None:
+            raw_end = event.get("dtend").dt
+        elif event.get("duration") is not None:
+            raw_end = raw_start + event.get("duration").dt
+        elif isinstance(raw_start, date) and not isinstance(raw_start, datetime):
+            raw_end = raw_start + timedelta(days=1)
+        else:
+            continue
+        title = str(event.get("summary") or "")[:200]
 
         # All-day events come back as bare `date` objects, not `datetime`.
         if isinstance(raw_start, date) and not isinstance(raw_start, datetime):

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_URL } from "../config";
 
 export default function ImportIcs({ onImported }) {
   const [file, setFile] = useState(null);
@@ -21,7 +22,7 @@ export default function ImportIcs({ onImported }) {
       formData.append("file", file);
 
       const res = await fetch(
-        `https://calender-app-mm4q.onrender.com/import/ics`,
+        `${API_URL}/import/ics`,
         { method: "POST", body: formData, headers: { Authorization: `Bearer ${token}` } }
       );
 

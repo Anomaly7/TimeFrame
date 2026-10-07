@@ -1,18 +1,24 @@
 import os
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+# Plain-http OAuth callbacks are only allowed when explicitly running locally.
+if os.getenv("ALLOW_INSECURE_OAUTH") == "1":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 from urllib.parse import quote
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from starlette.responses import RedirectResponse
 from app.availability import parse_event, find_free_time, PST
-from app.auth_utils import create_session_token, get_current_user
+from app.auth_utils import create_oauth_state, create_session_token, get_current_user, verify_oauth_state
 from datetime import datetime, time, timedelta
 from app.db import conn
 
 
 router = APIRouter()
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://calender-app-one-xi.vercel.app").rstrip("/")
+STATE_COOKIE = "oauth_nonce"
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
@@ -40,19 +46,36 @@ def login():
     flow = get_flow()
     flow.redirect_uri = os.getenv("REDIRECT_URI")
 
+    state, nonce = create_oauth_state()
     auth_url, _ = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="true"
+        include_granted_scopes="true",
+        state=state,
     )
 
-    return RedirectResponse(auth_url)
+    response = RedirectResponse(auth_url)
+    # Only this browser can finish the sign-in it started (see verify_oauth_state).
+    response.set_cookie(STATE_COOKIE, nonce, max_age=600, httponly=True, secure=True, samesite="lax", path="/auth")
+    return response
 
 @router.get("/auth/callback")
 def callback(request: Request):
+    if not verify_oauth_state(request.query_params.get("state"), request.cookies.get(STATE_COOKIE)):
+        return RedirectResponse(f"{FRONTEND_URL}/#auth_error=" + quote("Sign-in expired or was started elsewhere. Please try again."))
+    if request.query_params.get("error"):
+        return RedirectResponse(f"{FRONTEND_URL}/#auth_error=" + quote("Google sign-in was cancelled."))
+
     flow = get_flow()
     flow.redirect_uri = os.getenv("REDIRECT_URI")
 
-    flow.fetch_token(authorization_response=str(request.url))
+    # Behind Render's proxy the app sees http://; Google redirected to https://.
+    callback_url = str(request.url)
+    if request.headers.get("x-forwarded-proto") == "https" and callback_url.startswith("http://"):
+        callback_url = "https://" + callback_url[len("http://"):]
+    try:
+        flow.fetch_token(authorization_response=callback_url)
+    except Exception:
+        return RedirectResponse(f"{FRONTEND_URL}/#auth_error=" + quote("Google sign-in failed. Please try again."))
     credentials = flow.credentials
 
     service = build("calendar", "v3", credentials=credentials)
@@ -72,8 +95,14 @@ def callback(request: Request):
     user_id = email               # simple + stable
 
 
+    # Google has just proven this person owns the address. If someone else
+    # had already signed up with it by email/password (never verified),
+    # remove that password so they can't sign in and read this calendar.
     conn.execute(
-        "INSERT INTO users (id, email) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
+        """INSERT INTO users (id, email, email_verified) VALUES (?, ?, TRUE)
+           ON CONFLICT (id) DO UPDATE SET
+             password_hash = CASE WHEN users.email_verified THEN users.password_hash ELSE NULL END,
+             email_verified = TRUE""",
         (user_id, email)
     )
     conn.commit()
@@ -116,7 +145,11 @@ def callback(request: Request):
 
 
     token = create_session_token(user_id)
-    return RedirectResponse(f"https://calender-app-one-xi.vercel.app/?user={quote(user_id)}&token={quote(token)}")
+    # In the #fragment, not the ?query: fragments are never sent to servers,
+    # so the token doesn't land in Vercel's logs or Referer headers.
+    response = RedirectResponse(f"{FRONTEND_URL}/#user={quote(user_id)}&token={quote(token)}")
+    response.delete_cookie(STATE_COOKIE, path="/auth")
+    return response
 
 @router.get("/auth/status")
 def google_status(user_id: str = Depends(get_current_user)):

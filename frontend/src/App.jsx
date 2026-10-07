@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
+import { API_URL } from "./config";
 
 import AvailabilityForm from "./components/AvailabilityForm";
 import GoogleConnect from "./components/GoogleConnect";
@@ -138,10 +139,14 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // The Google sign-in redirect puts the session in the #fragment (never sent
+  // to any server); ?query is still read for links made before that change.
   const params = new URLSearchParams(window.location.search);
-  const userId = params.get("user");
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const userId = hashParams.get("user") || params.get("user");
   const groupIdFromLink = params.get("group");
-  const tokenFromUrl = params.get("token");
+  const tokenFromUrl = hashParams.get("token") || params.get("token");
+  const authError = hashParams.get("auth_error");
 
   // The session token proves who's making a request - the backend never
   // trusts a plain user_id from a query param for that (anyone could type
@@ -161,13 +166,21 @@ export default function App() {
     if (tokenFromUrl) {
       localStorage.setItem("authToken", tokenFromUrl);
     }
+    // Saved - now take the token out of the address bar so it isn't left in
+    // history, bookmarks or a copied link.
+    if (tokenFromUrl || authError || params.get("user")) {
+      const clean = new URLSearchParams(window.location.search);
+      clean.delete("token"); clean.delete("user");
+      const q = clean.toString();
+      window.history.replaceState(null, "", window.location.pathname + (q ? "?" + q : ""));
+    }
+    if (authError) alert(authError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenFromUrl]);
 
-  console.log("[DEBUG render] URL search:", window.location.search, "| groupIdFromLink:", groupIdFromLink, "| tokenFromUrl present:", !!tokenFromUrl);
 
   useEffect(() => {
     if (groupIdFromLink) {
-      console.log("[DEBUG] persisting groupId to localStorage:", groupIdFromLink);
       localStorage.setItem("groupId", groupIdFromLink);
     }
   }, [groupIdFromLink]);
@@ -180,20 +193,14 @@ export default function App() {
     const joiningGroupId = groupIdFromLink || localStorage.getItem("groupId");
     const token = tokenFromUrl || localStorage.getItem("authToken");
 
-    console.log("[DEBUG join-effect] groupIdFromLink:", groupIdFromLink, "| localStorage groupId:", localStorage.getItem("groupId"), "| resolved joiningGroupId:", joiningGroupId, "| have token:", !!token);
 
-    if (!token || !joiningGroupId) {
-      console.log("[DEBUG join-effect] skipping join - missing token or groupId");
-      return;
-    }
+    if (!token || !joiningGroupId) return;
 
-    console.log("[DEBUG join-effect] calling /groups/join with group_id =", joiningGroupId);
 
     fetch(
-      `https://calender-app-mm4q.onrender.com/groups/join?group_id=${joiningGroupId}`,
+      `${API_URL}/groups/join?group_id=${joiningGroupId}`,
       { method: "POST", headers: authHeaders() }
-    ).then((res) => {
-      console.log("[DEBUG join-effect] /groups/join responded with status", res.status, "- now refetching availability");
+    ).then(() => {
       // The mount-time availability fetch (below) can win the race and
       // complete before this join is processed server-side, showing only
       // your own calendar with no automatic retry - refetch once the
@@ -217,7 +224,7 @@ export default function App() {
       return;
     }
 
-    fetch(`https://calender-app-mm4q.onrender.com/auth/me`, { headers: authHeaders() })
+    fetch(`${API_URL}/auth/me`, { headers: authHeaders() })
       .then(res => {
         if (!res.ok) throw new Error("Session invalid");
         return res.json();
@@ -268,18 +275,14 @@ export default function App() {
 
   async function fetchAvailability(extraBusy = []) {
     const token = tokenFromUrl || localStorage.getItem("authToken");
-    if (!token) {
-      console.log("[DEBUG fetchAvailability] no token, skipping fetch entirely");
-      return;
-    }
+    if (!token) return;
 
     const groupId = localStorage.getItem("groupId");
     const groupParam = groupId ? `&group=${groupId}` : "";
 
     const { startOffset, days } = getRequestRange(viewMode, viewDate);
 
-    const url = `https://calender-app-mm4q.onrender.com/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}`;
-    console.log("[DEBUG fetchAvailability] localStorage groupId:", groupId, "| full URL:", url);
+    const url = `${API_URL}/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -288,12 +291,10 @@ export default function App() {
     });
 
     if (!res.ok) {
-      console.log("[DEBUG fetchAvailability] request failed with status", res.status);
       throw new Error("Failed to fetch availability");
     }
 
     const data = await res.json();
-    console.log("[DEBUG fetchAvailability] got", data.busy_times.length, "busy_times, owners:", [...new Set(data.busy_times.map(b => b.owner))]);
     setBusyTimes(data.busy_times);
     setFreeTimes(data.ranked_free_time);
   }
@@ -312,7 +313,7 @@ export default function App() {
 
   }
   function logout() {
-    fetch(`https://calender-app-mm4q.onrender.com/auth/logout`, {
+    fetch(`${API_URL}/auth/logout`, {
       method: "POST",
       headers: authHeaders()
     }).then(() => {
@@ -333,17 +334,22 @@ export default function App() {
     return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
   }
 
-  function createGroupLink() {
+  async function createGroupLink() {
     const groupId = generateShortGroupId();
 
-    fetch(
-      `https://calender-app-mm4q.onrender.com/groups/join?group_id=${groupId}`,
+    // Join first: the server only shows a group's calendars to its members.
+    const res = await fetch(
+      `${API_URL}/groups/join?group_id=${groupId}`,
       { method: "POST", headers: authHeaders() }
     );
+    if (!res.ok) {
+      alert("Couldn't create the group link. Please try again.");
+      return;
+    }
 
     localStorage.setItem("groupId", groupId);
 
-    const link = `https://calender-app-one-xi.vercel.app/?group=${groupId}`;
+    const link = `${window.location.origin}/?group=${groupId}`;
 
     navigator.clipboard.writeText(link)
       .then(() => {
@@ -355,10 +361,15 @@ export default function App() {
   }
 
 
-  // Still verifying a returning session - render nothing rather than
-  // flashing the login gate for a split second before it resolves.
+  // Still verifying a returning session. Usually instant, but a sleeping
+  // server can take most of a minute to wake, so say what's happening
+  // instead of showing a blank page.
   if (email === undefined) {
-    return <div className="app" />;
+    return (
+      <div className="app" style={{ display: "grid", placeItems: "center", minHeight: "60vh", opacity: 0.7 }}>
+        <p>Connecting to TimeFrame… this can take up to a minute the first time.</p>
+      </div>
+    );
   }
 
   // No valid session - the rest of the app (and the data it would show)

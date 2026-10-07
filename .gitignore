@@ -13,3 +13,6 @@ node_modules/
 
 # OS junk
 .DS_Store
+.venv/
+frontend/dist/
+.pytest_cache/

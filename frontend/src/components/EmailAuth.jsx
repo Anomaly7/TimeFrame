@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_URL } from "../config";
 
 export default function EmailAuth({ onAuthenticated }) {
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
@@ -15,7 +16,7 @@ export default function EmailAuth({ onAuthenticated }) {
     const path = mode === "signup" ? "/auth/signup" : "/auth/login";
 
     try {
-      const res = await fetch(`https://calender-app-mm4q.onrender.com${path}`, {
+      const res = await fetch(`${API_URL}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

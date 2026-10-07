@@ -84,6 +84,34 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 
 ---
 
+## Deployment
+
+### Backend (Render) environment variables
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | yes | Postgres (Supabase) connection string |
+| `SESSION_SECRET` | yes | Random, **at least 32 characters**. The API refuses to start without it. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth client |
+| `REDIRECT_URI` | yes | `https://<api-host>/auth/callback` (must match the Google console) |
+| `FRONTEND_URL` | no | Where sign-in redirects back to. Default `https://calender-app-one-xi.vercel.app` |
+| `FRONTEND_ORIGINS` | no | Comma-separated origins allowed to call the API (CORS). Default: the Vercel URL + `http://localhost:5173` |
+| `ALLOW_INSECURE_OAUTH` | local only | Set to `1` only when running the OAuth flow over plain `http://localhost` |
+
+### Frontend (Vercel) environment variables
+| Variable | Notes |
+|---|---|
+| `VITE_API_URL` | Backend URL. Default `https://calender-app-mm4q.onrender.com` |
+
+### Running the tests
+```
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
+The endpoint tests use an in-memory SQLite stand-in, so no database is needed.
+
+---
+
 ## Author
 
 **Samuel Esebor**

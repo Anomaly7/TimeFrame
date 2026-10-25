@@ -2,7 +2,7 @@ import re
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from datetime import datetime, time, timedelta
-from app.availability import merge_intervals, find_free_time, score_slot
+from app.availability import merge_intervals, find_free_time, score_slot, parse_prefer
 from app.auth_utils import get_current_user
 from app.db import conn
 from app.busy_store import insert_busy_rows
@@ -35,8 +35,11 @@ def merge_users_availability(
     # sends keep_manual=1 so it never touches the saved manual blocks -
     # otherwise a device with nothing stored locally (a phone, a new
     # browser) would wipe them just by opening the app.
-    keep_manual: bool = Query(False)
+    keep_manual: bool = Query(False),
+    # Ranked times of day for the best slot, e.g. "afternoon,morning,evening".
+    prefer: str = Query(None)
     ):
+    prefer_order = parse_prefer(prefer)
 
     # The viewer's own current timezone - "today", business hours, and
     # anything they enter manually are all relative to where THEY are right
@@ -205,7 +208,8 @@ def merge_users_availability(
             day_start=day_start_time,
             day_end=day_end_time,
             min_minutes=min_minutes,
-            tz=viewer_tz
+            tz=viewer_tz,
+            prefer=prefer_order
         )
 
         for start, end in free_slots:
@@ -214,7 +218,7 @@ def merge_users_availability(
                 "start": start.isoformat(),
                 "end": end.isoformat(),
                 "duration_minutes": int((end - start).total_seconds() / 60),
-                "score": score_slot(start, end, day_start_time, day_end_time, day_busy_count)
+                "score": score_slot(start, end, day_start_time, day_end_time, day_busy_count, prefer_order)
             })
 
     results.sort(key=lambda x: x["score"], reverse=True)

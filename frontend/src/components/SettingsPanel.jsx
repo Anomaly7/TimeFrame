@@ -1,12 +1,48 @@
+const PERIOD_LABELS = {
+  morning: ["Morning", "before 12 PM"],
+  afternoon: ["Afternoon", "12 – 5 PM"],
+  evening: ["Evening", "after 5 PM"],
+};
+
 export default function SettingsPanel({ settings, setSettings }) {
   function update(patch) {
     setSettings({ ...settings, ...patch });
+  }
+
+  // Swap a time of day with its neighbour in the ranking.
+  function move(index, delta) {
+    const prefs = [...settings.timePrefs];
+    const to = index + delta;
+    if (to < 0 || to >= prefs.length) return;
+    [prefs[index], prefs[to]] = [prefs[to], prefs[index]];
+    update({ timePrefs: prefs });
   }
 
   return (
     <div className="card settings-panel">
       <div className="card-title">
         <h2>Settings</h2>
+      </div>
+
+      <div className="settings-row time-prefs">
+        <div className="settings-field">
+          Best meeting time (rank your favourite first)
+          <ol className="time-prefs-list">
+            {settings.timePrefs.map((p, i) => (
+              <li key={p} className="time-prefs-item">
+                <span className="time-prefs-rank">{i === 0 ? "👑" : i + 1}</span>
+                <span>
+                  <strong>{PERIOD_LABELS[p][0]}</strong>{" "}
+                  <span className="time-prefs-hint">{PERIOD_LABELS[p][1]}</span>
+                </span>
+                <span className="time-prefs-moves">
+                  <button type="button" className="btn-ghost" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${PERIOD_LABELS[p][0]} up`}>↑</button>
+                  <button type="button" className="btn-ghost" onClick={() => move(i, 1)} disabled={i === settings.timePrefs.length - 1} aria-label={`Move ${PERIOD_LABELS[p][0]} down`}>↓</button>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
 
       <label className="settings-row settings-checkbox">

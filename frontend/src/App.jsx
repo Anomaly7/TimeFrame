@@ -13,7 +13,14 @@ import GroupsPanel from "./components/GroupsPanel";
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-const DEFAULT_SETTINGS = { dayStart: "08:00", dayEnd: "22:00", excludeWeekends: false, meetingLength: 30 };
+// timePrefs: times of day ranked best-first for the suggested meeting slots.
+const DEFAULT_SETTINGS = {
+  dayStart: "08:00",
+  dayEnd: "22:00",
+  excludeWeekends: false,
+  meetingLength: 30,
+  timePrefs: ["afternoon", "morning", "evening"],
+};
 
 function ymd(date) {
   const y = date.getFullYear();
@@ -304,7 +311,7 @@ export default function App() {
       fetchAvailability(manualBusy).catch(err => console.error(err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.dayStart, settings.dayEnd, settings.meetingLength, viewMode, viewDate]);
+  }, [settings.dayStart, settings.dayEnd, settings.meetingLength, settings.timePrefs.join(","), viewMode, viewDate]);
 
   // Your saved manual blocks live on the server; load them once signed in
   // so every device shows (and keeps) the same list. Until that's done,
@@ -367,7 +374,7 @@ export default function App() {
 
     const { startOffset, days } = getRequestRange(viewMode, viewDate);
 
-    const url = `${API_URL}/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}${save ? "" : "&keep_manual=1"}`;
+    const url = `${API_URL}/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}&prefer=${settings.timePrefs.join(",")}${save ? "" : "&keep_manual=1"}`;
 
     const res = await fetch(url, {
       method: "POST",

@@ -84,3 +84,34 @@ class TestScoreSlot:
         one = score_slot(dt(11, 0), dt(12, 0), DAY_START, DAY_END, day_busy_count=1)
         two = score_slot(dt(11, 0), dt(12, 0), DAY_START, DAY_END, day_busy_count=2)
         assert one - two == 15
+
+
+class TestRankedTimesOfDay:
+    def test_parse_prefer_keeps_valid_names_in_order(self):
+        from app.availability import parse_prefer
+        assert parse_prefer("Evening, morning,bogus,evening") == ["evening", "morning"]
+        assert parse_prefer("") is None and parse_prefer(None) is None
+
+    def test_free_day_places_the_meeting_in_the_first_choice(self):
+        for prefer, expect_hour in ((["morning"], 9), (["afternoon"], 14), (["evening"], 19)):
+            (start, end), = find_free_time([], DAY, DAY_START, DAY_END, min_minutes=60, tz=TZ, prefer=prefer)
+            assert start.hour == expect_hour, (prefer, start)
+            # morning 8-12 -> 9:30; afternoon 12-5 -> 14:00; evening 5-10 -> 19:00
+            assert (end - start).total_seconds() == 3600
+
+    def test_falls_back_to_the_next_choice_when_the_first_is_busy(self):
+        busy = [(dt(8, 0), dt(12, 0))]  # whole morning taken
+        (start, _), = find_free_time(busy, DAY, DAY_START, DAY_END, min_minutes=60, tz=TZ,
+                                      prefer=["morning", "evening", "afternoon"])
+        assert start.hour >= 17
+
+    def test_ranking_decides_the_score(self):
+        order = ["evening", "morning", "afternoon"]
+        evening = score_slot(dt(19, 0), dt(20, 0), DAY_START, DAY_END, prefer=order)
+        morning = score_slot(dt(9, 30), dt(10, 30), DAY_START, DAY_END, prefer=order)
+        afternoon = score_slot(dt(14, 0), dt(15, 0), DAY_START, DAY_END, prefer=order)
+        assert evening > morning > afternoon
+
+    def test_no_ranking_keeps_the_midday_behaviour(self):
+        (start, _), = find_free_time([], DAY, DAY_START, DAY_END, min_minutes=60, tz=TZ)
+        assert start.hour == 14 and start.minute == 30  # centered on 15:00

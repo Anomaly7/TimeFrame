@@ -847,3 +847,19 @@
   background: var(--surface);
   color: var(--text);
 }
+
+/* ---- Best meeting time ranking (Settings) ---- */
+.time-prefs-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+.time-prefs-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.time-prefs-rank { width: 1.5em; text-align: center; font-weight: 700; color: var(--text-muted); }
+.time-prefs-hint { color: var(--text-muted); font-size: 0.85em; }
+.time-prefs-moves { margin-left: auto; display: flex; gap: 4px; }
+.time-prefs-moves .btn-ghost { padding: 2px 8px; }

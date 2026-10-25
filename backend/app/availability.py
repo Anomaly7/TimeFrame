@@ -28,6 +28,35 @@ def parse_event(event):
     return start_dt, end_dt, raw_timezone, title
 
 
+# Times of day people can rank for "best meeting time", as minutes after
+# midnight: morning is before noon, afternoon noon-5 PM, evening after 5 PM.
+PERIODS = {
+    "morning": (0, 12 * 60),
+    "afternoon": (12 * 60, 17 * 60),
+    "evening": (17 * 60, 24 * 60),
+}
+# Score bonus by rank: 1st choice, 2nd, 3rd.
+PERIOD_BONUS = (150, 75, 0)
+
+
+def parse_prefer(value):
+    """"afternoon,morning,evening" -> ["afternoon", "morning", "evening"];
+    unknown or repeated names are dropped. None/empty = no ranking."""
+    out = []
+    for name in (value or "").lower().split(","):
+        name = name.strip()
+        if name in PERIODS and name not in out:
+            out.append(name)
+    return out or None
+
+
+def period_of(minute_of_day: float) -> str:
+    for name, (lo, hi) in PERIODS.items():
+        if lo <= minute_of_day < hi:
+            return name
+    return "evening"
+
+
 def merge_intervals(intervals):
     if not intervals:
         return []
@@ -52,7 +81,8 @@ def find_free_time(
     day_start,
     day_end,
     min_minutes=30,
-    tz=PST
+    tz=PST,
+    prefer=None
 ):
     free = []
     min_duration = timedelta(minutes=min_minutes)
@@ -84,9 +114,20 @@ def find_free_time(
     day_mid = start_dt + (end_dt - start_dt) / 2
     ideal_start = day_mid - min_duration / 2
 
+    midnight = datetime.combine(target_date, time.min, tzinfo=tz)
+
     def best_window(gap_start, gap_end):
         if gap_end - gap_start < min_duration:
             return None
+        # With a ranking, put the meeting in the highest-ranked part of the
+        # day this gap reaches (centered in it); otherwise near midday.
+        for name in prefer or []:
+            lo_min, hi_min = PERIODS[name]
+            lo = max(gap_start, midnight + timedelta(minutes=lo_min))
+            hi = min(gap_end, midnight + timedelta(minutes=hi_min))
+            if hi - lo >= min_duration:
+                start = lo + ((hi - lo) - min_duration) / 2
+                return (start, start + min_duration)
         latest_start = gap_end - min_duration
         window_start = min(max(ideal_start, gap_start), latest_start)
         return (window_start, window_start + min_duration)
@@ -107,8 +148,22 @@ def find_free_time(
 
     return free
 
-def score_slot(start: datetime, end: datetime, day_start: time, day_end: time, day_busy_count: int = 0) -> int:
+def score_slot(start: datetime, end: datetime, day_start: time, day_end: time, day_busy_count: int = 0, prefer=None) -> int:
     duration_minutes = int((end - start).total_seconds() / 60)
+
+    if prefer:
+        # Ranked times of day decide: 1st choice beats 2nd beats 3rd (and
+        # any unranked period), then a small nudge toward the middle of that
+        # period, then the quieter day.
+        slot_mid = ((start.hour * 60 + start.minute) + (end.hour * 60 + end.minute)) / 2
+        name = period_of(slot_mid)
+        rank = prefer.index(name) if name in prefer else len(PERIOD_BONUS)
+        bonus = PERIOD_BONUS[rank] if rank < len(PERIOD_BONUS) else -75
+        lo = max(PERIODS[name][0], day_start.hour * 60 + day_start.minute)
+        hi = min(PERIODS[name][1], day_end.hour * 60 + day_end.minute)
+        half = max(hi - lo, 1) / 2
+        nudge = max(0.0, 30 * (1 - abs(slot_mid - (lo + hi) / 2) / half))
+        return round(duration_minutes + bonus + nudge - day_busy_count * 15)
 
     # A slot centered near the middle of the day's bounds scores highest,
     # falling off linearly toward either edge - replaces the old fixed

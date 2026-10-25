@@ -277,8 +277,10 @@ export default function CalendarView({
             {dates.map((date) => {
               const isToday = date === today;
 
+              // Every block that overlaps this column, not just ones that
+              // start on it - multi-day and overnight events show on each
+              // day they cover.
               const dayBusy = busyTimes
-                .filter((b) => b.date === date)
                 .map((b) => ({ ...b, ...toSpan(b.start, b.end, date) }))
                 // Entirely before the day-start or after the day-end: not shown.
                 .filter((b) => b.endMin > 0 && b.startMin < totalMinutes)

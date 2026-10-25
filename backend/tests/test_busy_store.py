@@ -60,7 +60,7 @@ def test_google_callback_saves_every_event_page(client, monkeypatch):
 
     r = client.get("/auth/callback?state=x&code=y", follow_redirects=False)
     assert r.status_code == 307 and "#user=gal%40example.com&token=" in r.headers["location"]
-    assert all(c["fields"] == "nextPageToken,items(start,end)" for c in calls)  # titles never requested
+    assert all("summary" not in c["fields"] and "description" not in c["fields"] for c in calls)  # titles never requested
     (count,) = client.fake.execute("SELECT COUNT(*) FROM busy_times WHERE user_id = 'gal@example.com' AND source = 'google'").fetchone()
     assert count == 1350
 
@@ -85,3 +85,26 @@ def test_blocks_only_say_whose_they_are(client):
     assert "Doctor" not in body and "Therapy" not in body
     assert all(b["title"] is None for b in r.json()["busy_times"])
     assert any(b["owner"] == "alice@example.com" for b in r.json()["busy_times"])
+
+
+def test_free_declined_and_working_location_events_dont_block_time(client):
+    from app.google_auth import blocks_time
+    assert blocks_time({"start": {}, "end": {}})
+    assert not blocks_time({"transparency": "transparent"})
+    assert not blocks_time({"eventType": "workingLocation"})
+    assert not blocks_time({"attendees": [{"self": True, "responseStatus": "declined"}]})
+    assert blocks_time({"attendees": [{"responseStatus": "declined"}, {"self": True, "responseStatus": "accepted"}]})
+    assert blocks_time({"eventType": "focusTime", "transparency": "opaque"})
+
+
+def test_a_plain_refresh_never_wipes_saved_manual_blocks(client):
+    alice = signup(client, "alice@example.com")
+    url = "/availability/merge?days=7&start_offset=0&timezone=America/Vancouver"
+    client.post(url, json=[[{"start": "2031-01-01T10:00", "end": "2031-01-01T11:00"}]], headers=alice)
+    # A second device with nothing stored locally just refreshes...
+    client.post(url + "&keep_manual=1", json=[], headers=alice)
+    saved = client.get("/availability/manual", headers=alice).json()["blocks"]
+    assert len(saved) == 1 and saved[0]["start"].startswith("2031-01-01T10:00")
+    # ...while an explicit save of an empty list (Clear) still clears them.
+    client.post(url, json=[], headers=alice)
+    assert client.get("/availability/manual", headers=alice).json()["blocks"] == []

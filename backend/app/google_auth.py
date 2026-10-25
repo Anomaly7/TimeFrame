@@ -42,6 +42,20 @@ def get_flow():
         autogenerate_code_verifier=False
     )
 
+def blocks_time(event) -> bool:
+    """Whether a Google event really makes you busy. Skips events shown as
+    "Free" (transparent - e.g. reminders, holidays, all-day notes), Google's
+    all-day "Working location" markers, and invitations you declined."""
+    if event.get("transparency") == "transparent":
+        return False
+    if event.get("eventType") == "workingLocation":
+        return False
+    for attendee in event.get("attendees") or []:
+        if attendee.get("self") and attendee.get("responseStatus") == "declined":
+            return False
+    return True
+
+
 @router.get("/auth/login")
 def login():
     flow = get_flow()
@@ -122,16 +136,18 @@ def callback(request: Request):
             orderBy="startTime",
             maxResults=2500,
             pageToken=page_token,
-            # Only the times - never titles, descriptions, attendees or links
-            # (busy blocks only show whose they are). Also a much smaller response.
-            fields="nextPageToken,items(start,end)"
+            # Only the times plus what's needed to tell if the time is really
+            # busy - never titles, descriptions, other attendees or links
+            # (busy blocks only show whose they are). attendees(self,
+            # responseStatus) returns only *your* RSVP, no one else's email.
+            fields="nextPageToken,items(start,end,transparency,eventType,attendees(self,responseStatus))"
         ).execute()
         events.extend(events_result.get("items", []))
         page_token = events_result.get("nextPageToken")
         if not page_token:
             break
 
-    busy = [parse_event(e) for e in events]
+    busy = [parse_event(e) for e in events if blocks_time(e)]
 
     # Store Google Calendar busy times for later merging
     conn.execute(

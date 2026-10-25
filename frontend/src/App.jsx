@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { API_URL } from "./config";
 
@@ -19,6 +19,13 @@ function ymd(date) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+// A saved block's ISO time -> the browser-local "YYYY-MM-DDTHH:MM" the
+// manual-entry list uses.
+function toLocalInput(iso) {
+  const d = new Date(iso);
+  return `${ymd(d)}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function parseISODate(s) {
@@ -211,6 +218,19 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIdFromLink, tokenFromUrl]);
 
+  // Whether Google Calendar is actually linked - not just "signed in"
+  // (an email/password account isn't connected to Google).
+  const [googleConnected, setGoogleConnected] = useState(false);
+
+  useEffect(() => {
+    if (!email) return;
+    fetch(`${API_URL}/auth/status`, { headers: authHeaders() })
+      .then((res) => (res.ok ? res.json() : { connected: false }))
+      .then((data) => setGoogleConnected(!!data.connected))
+      .catch(() => setGoogleConnected(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+
   // 🔹 FREE TIMES
   const [freeTimes, setFreeTimes] = useState(() => {
     const saved = localStorage.getItem("freeTimes");
@@ -252,9 +272,36 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.dayStart, settings.dayEnd, settings.meetingLength, viewMode, viewDate]);
 
+  // Your saved manual blocks live on the server; load them once signed in
+  // so every device shows (and keeps) the same list. Until that's done,
+  // nothing auto-saves, so a stale or empty local copy can't overwrite them.
+  const manualReady = useRef(false);
+  const skipNextManualSave = useRef(false);
+
+  useEffect(() => {
+    if (!email) return;
+    fetch(`${API_URL}/availability/manual`, { headers: authHeaders() })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("load failed"))))
+      .then((data) => {
+        skipNextManualSave.current = true; // just loaded - nothing new to save
+        setManualBusy(data.blocks.map((b) => ({ start: toLocalInput(b.start), end: toLocalInput(b.end) })));
+        manualReady.current = true;
+      })
+      .catch((err) => console.error(err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+
   // 🔁 Persist everything
   useEffect(() => {
     localStorage.setItem("manualBusy", JSON.stringify(manualBusy));
+    // Adding or removing a block saves it right away, so group members see it.
+    if (!manualReady.current) return;
+    if (skipNextManualSave.current) {
+      skipNextManualSave.current = false;
+      return;
+    }
+    fetchAvailability(manualBusy, { save: true }).catch((err) => console.error(err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualBusy]);
 
   useEffect(() => {
@@ -273,7 +320,11 @@ export default function App() {
     localStorage.setItem("settings", JSON.stringify(settings));
   }, [settings]);
 
-  async function fetchAvailability(extraBusy = []) {
+  // save: true replaces your saved manual blocks with extraBusy (adding,
+  // removing, Find Free Time, Clear). Anything else is a plain refresh that
+  // leaves them alone - so opening the app on a device with nothing stored
+  // locally can never wipe them.
+  async function fetchAvailability(extraBusy = [], { save = false } = {}) {
     const token = tokenFromUrl || localStorage.getItem("authToken");
     if (!token) return;
 
@@ -282,7 +333,7 @@ export default function App() {
 
     const { startOffset, days } = getRequestRange(viewMode, viewDate);
 
-    const url = `${API_URL}/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}`;
+    const url = `${API_URL}/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}${save ? "" : "&keep_manual=1"}`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -300,17 +351,16 @@ export default function App() {
   }
 
   // 🧼 CLEAR EVERYTHING
+  // Clears your manual busy blocks and leaves the current group view, then
+  // reloads your own schedule. Keeps you signed in (it used to also delete
+  // the session token while leaving the page looking signed in, so nothing
+  // loaded afterwards); "Logout" is the separate button for that.
   function clearAll() {
     setManualBusy([]);
-    setBusyTimes([]);
-    setFreeTimes([]);
-    localStorage.removeItem("userId");
-    localStorage.removeItem("authToken");
     localStorage.removeItem("groupId");
     localStorage.removeItem("manualBusy");
-    localStorage.removeItem("busyTimes");
-    localStorage.removeItem("freeTimes");
-
+    // An empty list also deletes the saved manual blocks on the server.
+    fetchAvailability([], { save: true }).catch((err) => console.error(err));
   }
   function logout() {
     fetch(`${API_URL}/auth/logout`, {
@@ -421,14 +471,15 @@ export default function App() {
         </div>
       </header>
 
-      <GoogleConnect connected={!!email} />
+      <GoogleConnect connected={googleConnected} />
 
-      <ImportIcs onImported={fetchAvailability} />
+      {/* Re-send the manual blocks: an empty list would delete them server-side. */}
+      <ImportIcs onImported={() => fetchAvailability(manualBusy)} />
 
       <AvailabilityForm
         manualBusy={manualBusy}
         setManualBusy={setManualBusy}
-        onSubmit={fetchAvailability}
+        onSubmit={(blocks) => fetchAvailability(blocks, { save: true })}
       />
 
       <div className="toolbar">

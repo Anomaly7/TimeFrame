@@ -30,7 +30,12 @@ def merge_users_availability(
     day_end: str = Query("22:00"),
     timezone: str = Query(None),
     days: int = Query(1, ge=1, le=62),
-    start_offset: int = Query(0, ge=-366, le=366)
+    start_offset: int = Query(0, ge=-366, le=366),
+    # A plain refresh (changing view, joining a group, after an import)
+    # sends keep_manual=1 so it never touches the saved manual blocks -
+    # otherwise a device with nothing stored locally (a phone, a new
+    # browser) would wipe them just by opening the app.
+    keep_manual: bool = Query(False)
     ):
 
     # The viewer's own current timezone - "today", business hours, and
@@ -95,17 +100,18 @@ def merge_users_availability(
     # previously manual entries only ever lived in this one response. Record
     # the zone they were entered in so viewers can later see them in their
     # original timezone rather than one silently converted.
-    conn.execute(
-        "DELETE FROM busy_times WHERE user_id = ? AND source = 'manual'",
-        (user_id,)
-    )
+    if not keep_manual:
+        conn.execute(
+            "DELETE FROM busy_times WHERE user_id = ? AND source = 'manual'",
+            (user_id,)
+        )
 
-    insert_busy_rows(
-        (user_id, start_dt.isoformat(), end_dt.isoformat(), "manual", str(viewer_tz), title)
-        for start_dt, end_dt, title in manual_blocks
-    )
+        insert_busy_rows(
+            (user_id, start_dt.isoformat(), end_dt.isoformat(), "manual", str(viewer_tz), title)
+            for start_dt, end_dt, title in manual_blocks
+        )
 
-    conn.commit()
+        conn.commit()
 
     # ---- Gather busy times for this user + any group members, all from the DB ----
     today = datetime.now(viewer_tz).date()
@@ -209,6 +215,17 @@ def merge_users_availability(
         "busy_times": busy_output,
         "ranked_free_time": results
     }
+
+@router.get("/availability/manual")
+def my_manual_blocks(user_id: str = Depends(get_current_user)):
+    """All of your saved manual busy blocks, so a new device can show (and
+    keep) them instead of starting from an empty list."""
+    rows = conn.execute(
+        "SELECT start, end_time FROM busy_times WHERE user_id = ? AND source = 'manual' ORDER BY start",
+        (user_id,)
+    ).fetchall()
+    return {"blocks": [{"start": s, "end": e} for s, e in rows]}
+
 
 @router.post("/groups/join")
 def join_group(group_id: str = Query(...), user_id: str = Depends(get_current_user)):

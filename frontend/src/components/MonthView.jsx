@@ -63,9 +63,20 @@ export default function MonthView({
   const owners = [...new Set(busyTimes.map((b) => b.owner).filter(Boolean))];
   const personColorByOwner = assignPersonColors(owners, currentUserId);
 
+  // A block appears on every day it covers (multi-day trips, overnight
+  // events), not only the day it starts. An end at exactly midnight
+  // doesn't spill onto the next day.
   const busyByDate = {};
   for (const b of busyTimes) {
-    (busyByDate[b.date] ||= []).push(b);
+    const start = new Date(b.start);
+    const end = new Date(b.end);
+    if (!(end > start)) continue;
+    const last = new Date(end.getTime() - 1);
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    for (let n = 0; cursor <= last && n < 62; n++) {
+      (busyByDate[ymd(cursor)] ||= []).push(b);
+      cursor.setDate(cursor.getDate() + 1);
+    }
   }
 
   return (

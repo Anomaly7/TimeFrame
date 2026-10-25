@@ -38,6 +38,12 @@ export default function AvailabilityForm({
 
   function addBusy() {
     if (!startDate || !endDate) return;
+    // Zero-length or backwards blocks were silently dropped by the server.
+    if (new Date(`${endDate}T${endTime}`) <= new Date(`${startDate}T${startTime}`)) {
+      setError("The end time must be after the start time.");
+      return;
+    }
+    setError("");
 
     setManualBusy([
       ...manualBusy,

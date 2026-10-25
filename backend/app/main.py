@@ -6,10 +6,9 @@ from dotenv import load_dotenv
 from app.group_availability import router as group_router
 from app.calendar_import import router as import_router
 from app.email_auth import router as email_auth_router
-from app.polls import router as polls_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
-from app.db import current_request
+from app.db import conn, current_request
 
 load_dotenv()
 _secret()  # fail at startup, not on the first sign-in, if SESSION_SECRET is missing/weak
@@ -47,7 +46,6 @@ app.include_router(group_router)
 app.include_router(google_router)
 app.include_router(import_router)
 app.include_router(email_auth_router)
-app.include_router(polls_router)
 
 @app.get("/")
 def root():
@@ -56,4 +54,11 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
+@app.get("/health/db")
+def health_db():
+    # Runs a real query, so a daily ping keeps the free Supabase project
+    # from pausing for inactivity (and shows whether the database is up).
+    conn.execute("SELECT 1").fetchone()
+    return {"status": "healthy", "database": "ok"}
 

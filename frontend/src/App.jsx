@@ -9,12 +9,6 @@ import CalendarView from "./components/CalendarView";
 import MonthView from "./components/MonthView";
 import SettingsPanel from "./components/SettingsPanel";
 import ImportIcs from "./components/ImportIcs";
-import PollCreate from "./components/PollCreate";
-import PollPage from "./components/PollPage";
-
-// A shared poll link (?poll=<id>) opens the poll page directly: anyone with
-// the link can answer, signed in or not.
-const POLL_ID = new URLSearchParams(window.location.search).get("poll");
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -96,11 +90,6 @@ function formatRangeLabel(viewMode, viewDate) {
 }
 
 export default function App() {
-  if (POLL_ID) return <PollPage pollId={POLL_ID} />;
-  return <TimeFrameApp />;
-}
-
-function TimeFrameApp() {
   // 🔹 MANUAL BUSY SLOTS (input form)
   const [manualBusy, setManualBusy] = useState(() => {
     const saved = localStorage.getItem("manualBusy");
@@ -416,9 +405,6 @@ function TimeFrameApp() {
             }}
           />
         </div>
-
-        {/* Polls don't need an account: anyone can start one from here. */}
-        <PollCreate authHeaders={() => ({})} />
       </div>
     );
   }
@@ -444,8 +430,6 @@ function TimeFrameApp() {
         setManualBusy={setManualBusy}
         onSubmit={fetchAvailability}
       />
-
-      <PollCreate authHeaders={authHeaders} />
 
       <div className="toolbar">
         <button className="btn-ghost" onClick={clearAll}>Clear Schedule</button>

@@ -58,12 +58,6 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 - Anyone who signs in via the link joins the group and sees everyone's merged availability
 - Each member's own account controls what they share — no one needs anyone else's credentials
 
-### Group Polls (When2meet-style)
-- Pick candidate dates and hours, then share the poll link
-- Anyone with the link answers with just their name (no account needed) and clicks and drags to paint when they're free
-- A live heatmap shows the overlap; hover any time to see who's free, and the best times are listed with a crown 👑
-- Signed-in users can fill their answer from their TimeFrame calendar in one click; account emails never appear in the poll
-
 ### Persistent State
 - Backed by a real PostgreSQL database (Supabase), not just browser storage
 - Schedules, group membership, and accounts persist across devices and redeploys

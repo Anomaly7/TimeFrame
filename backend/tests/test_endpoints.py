@@ -118,3 +118,8 @@ def test_cors_only_allows_the_real_frontend(client):
     bad = client.options("/health", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
     assert ok.headers.get("access-control-allow-origin") == "https://calender-app-one-xi.vercel.app"
     assert "access-control-allow-origin" not in bad.headers
+
+
+def test_health_db_runs_a_query(client):
+    r = client.get("/health/db")
+    assert r.status_code == 200 and r.json()["database"] == "ok"

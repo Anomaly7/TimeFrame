@@ -103,8 +103,10 @@ def _load(poll_id: str):
 
 
 @router.post("/polls")
-def create_poll(request: Request, body: dict = Body(...), user_id: str = Depends(get_current_user)):
-    create_limiter.check("poll-create:" + user_id, "poll-create-ip:" + client_ip(request))
+def create_poll(request: Request, body: dict = Body(...), user_id=Depends(_optional_user)):
+    # No account needed to start a poll (like When2meet); limited per IP so
+    # the open endpoint can't be used to flood the database.
+    create_limiter.check("poll-create-ip:" + client_ip(request))
 
     title = str(body.get("title") or "").strip()[:100] or "Group meeting"
     try:

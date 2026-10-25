@@ -69,7 +69,7 @@ export default function PollCreate({ authHeaders }) {
           <h2>Group poll</h2>
         </div>
         <p className="card-subtitle">
-          Like When2meet: pick some dates, share the link, and everyone paints when they're free. No account needed to answer.
+          Like When2meet: pick some dates, share the link, and everyone paints when they're free. No account needed.
         </p>
         <button className="btn btn-primary" onClick={() => setOpen(true)}>New poll</button>
       </div>

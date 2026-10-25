@@ -10,8 +10,10 @@ def make_poll(client, headers):
     return r.json()["id"]
 
 
-def test_creating_a_poll_requires_sign_in(client):
-    assert client.post("/polls", json=NEW_POLL).status_code == 401
+def test_anyone_can_create_a_poll_without_an_account(client):
+    r = client.post("/polls", json=NEW_POLL)
+    assert r.status_code == 200, r.text
+    assert client.get(f"/polls/{r.json()['id']}").json()["title"] == "Project sync"
 
 
 def test_poll_grid_covers_every_date_and_slot(client):

@@ -416,6 +416,9 @@ function TimeFrameApp() {
             }}
           />
         </div>
+
+        {/* Polls don't need an account: anyone can start one from here. */}
+        <PollCreate authHeaders={() => ({})} />
       </div>
     );
   }

@@ -53,6 +53,33 @@ function wallClockMinutes(iso, timeZone, dayStartHour) {
   return (hour - dayStartHour) * 60 + minute;
 }
 
+// Minutes from the visible day-start on `dateStr` (the column's date) to
+// `iso`, in `timeZone`. Date-aware, unlike wall-clock minutes: something
+// ending at 7 AM is before the 8 AM start (negative), and something ending
+// at 1 AM the next day is past the column's end - so each can be clipped or
+// hidden correctly instead of being mistaken for "runs to the end of day".
+function minutesIntoColumn(iso, timeZone, dateStr, dayStartHour) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    })
+      .formatToParts(new Date(iso))
+      .map((p) => [p.type, p.value])
+  );
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dayDiff = Math.round(
+    (Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) - Date.UTC(y, m - 1, d)) / 86400000
+  );
+  const hour = Number(parts.hour) % 24;
+  return dayDiff * 1440 + (hour - dayStartHour) * 60 + Number(parts.minute);
+}
+
 function formatHourLabel(hour) {
   const h = ((hour % 24) + 24) % 24;
   if (h === 0) return "12 AM";
@@ -179,13 +206,17 @@ export default function CalendarView({
   const totalHeight = (dayEndHour - dayStartHour) * PX_PER_HOUR;
   const hourMarks = Array.from({ length: dayEndHour - dayStartHour + 1 }, (_, i) => dayStartHour + i);
 
-  function toSpan(startIso, endIso) {
-    const startMin = wallClockMinutes(startIso, timezone, dayStartHour);
-    const endMin = wallClockMinutes(endIso, timezone, dayStartHour);
+  // Raw (unclipped) position within this date's column; callers drop
+  // anything entirely outside the visible hours, then clip the rest.
+  function toSpan(startIso, endIso, date) {
     return {
-      startMin: Math.max(0, startMin),
-      endMin: Math.min(totalMinutes, endMin <= 0 ? totalMinutes : endMin)
+      startMin: minutesIntoColumn(startIso, timezone, date, dayStartHour),
+      endMin: minutesIntoColumn(endIso, timezone, date, dayStartHour)
     };
+  }
+
+  function clip(span) {
+    return { ...span, startMin: Math.max(0, span.startMin), endMin: Math.min(totalMinutes, span.endMin) };
   }
 
   const now = new Date();
@@ -248,8 +279,10 @@ export default function CalendarView({
 
               const dayBusy = busyTimes
                 .filter((b) => b.date === date)
-                .map((b) => ({ ...b, ...toSpan(b.start, b.end) }))
-                .filter((b) => b.endMin > 0 && b.startMin < totalMinutes);
+                .map((b) => ({ ...b, ...toSpan(b.start, b.end, date) }))
+                // Entirely before the day-start or after the day-end: not shown.
+                .filter((b) => b.endMin > 0 && b.startMin < totalMinutes)
+                .map(clip);
 
               const busyLaned = assignLanes(dayBusy);
 
@@ -257,8 +290,9 @@ export default function CalendarView({
               // ranked slots (wherever they fall) get highlighted.
               const dayFree = freeTimes
                 .filter((f) => f.date === date && topFree.includes(f))
-                .map((f) => ({ ...f, ...toSpan(f.start, f.end), rank: topFree.indexOf(f) + 1 }))
-                .filter((f) => f.endMin > 0 && f.startMin < totalMinutes);
+                .map((f) => ({ ...f, ...toSpan(f.start, f.end, date), rank: topFree.indexOf(f) + 1 }))
+                .filter((f) => f.endMin > 0 && f.startMin < totalMinutes)
+                .map(clip);
 
               return (
                 <div className="timeline-track" style={{ height: `${totalHeight}px` }} key={date}>

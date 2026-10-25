@@ -807,3 +807,77 @@
 .timeline-legend .swatch.best-free.rank-2 {
   opacity: 0.75;
 }
+
+/* ---- Group polls (When2meet-style) ---- */
+.poll-month {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  max-width: 340px;
+}
+.poll-day {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.poll-day.other-month { opacity: 0.45; }
+.poll-day:disabled { opacity: 0.25; cursor: default; }
+.poll-day.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+.poll-title-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.poll-name-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.poll-name-form .activity-name-input { flex: 1; min-width: 180px; margin: 0; }
+.poll-me-row { align-items: center; flex-wrap: wrap; }
+.poll-save-state { color: var(--text-muted); font-size: 0.85rem; }
+.poll-grids {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.poll-grid-title { margin: 0 0 4px; font-size: 1rem; }
+.poll-grid {
+  display: grid;
+  user-select: none;
+  touch-action: none;
+  overflow-x: auto;
+  margin-top: 8px;
+}
+.poll-grid.locked { opacity: 0.5; pointer-events: none; }
+.poll-col-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+.poll-col-head strong { color: var(--text); font-weight: 600; }
+.poll-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 6px;
+  transform: translateY(-0.55em);
+}
+.poll-cell {
+  height: 18px;
+  border-left: 1px solid var(--grid-line);
+  border-bottom: 1px dotted var(--grid-line);
+  background: var(--surface-muted);
+  cursor: pointer;
+}
+.poll-cell.hour { border-top: 1px solid var(--grid-line); }
+.poll-cell.mine { background: var(--success); }
+.poll-cell.all { outline: 2px solid var(--success); outline-offset: -2px; }
+.poll-legend { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-muted); }
+.poll-legend-bar {
+  flex: 0 0 120px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(to right, var(--surface-muted), var(--success));
+}
+.poll-hover { margin-top: 10px; font-size: 0.85rem; min-height: 2.6em; }
+.poll-best { margin: 0; padding-left: 1.2em; }

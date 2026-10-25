@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from app.group_availability import router as group_router
 from app.calendar_import import router as import_router
 from app.email_auth import router as email_auth_router
+from app.polls import router as polls_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
 from app.db import current_request
@@ -46,6 +47,7 @@ app.include_router(group_router)
 app.include_router(google_router)
 app.include_router(import_router)
 app.include_router(email_auth_router)
+app.include_router(polls_router)
 
 @app.get("/")
 def root():

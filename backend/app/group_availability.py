@@ -235,13 +235,23 @@ def my_manual_blocks(user_id: str = Depends(get_current_user)):
     return {"blocks": [{"start": s, "end": e} for s, e in rows]}
 
 
+def clean_group_name(name) -> str | None:
+    return " ".join(str(name or "").split())[:60] or None
+
+
 @router.post("/groups/join")
-def join_group(group_id: str = Query(...), user_id: str = Depends(get_current_user)):
+def join_group(
+    group_id: str = Query(...),
+    name: str = Query(None),
+    user_id: str = Depends(get_current_user),
+):
+    """Joins (or, for a new id, creates) a group. `name` only applies when
+    the group is new - joining someone's link never renames their group."""
     if not GROUP_ID_RE.match(group_id):
         raise HTTPException(status_code=400, detail="That group link isn't valid.")
     conn.execute(
-        "INSERT INTO groups (id) VALUES (?) ON CONFLICT (id) DO NOTHING",
-        (group_id,)
+        "INSERT INTO groups (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
+        (group_id, clean_group_name(name))
     )
 
     existing_members = conn.execute(
@@ -262,3 +272,53 @@ def join_group(group_id: str = Query(...), user_id: str = Depends(get_current_us
 
     conn.commit()
     return {"joined": True}
+
+
+@router.get("/groups")
+def my_groups(user_id: str = Depends(get_current_user)):
+    """Every group link you're in, with its name and who's in it."""
+    me = user_id.strip().lower()
+    rows = conn.execute(
+        "SELECT DISTINCT group_id FROM group_members WHERE LOWER(TRIM(user_id)) = ?", (me,)
+    ).fetchall()
+    group_ids = [r[0] for r in rows]
+
+    out = []
+    for gid in group_ids:
+        name_row = conn.execute("SELECT name FROM groups WHERE id = ?", (gid,)).fetchone()
+        members = []
+        seen = set()
+        for (uid,) in conn.execute("SELECT user_id FROM group_members WHERE group_id = ?", (gid,)).fetchall():
+            key = uid.strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            row = conn.execute("SELECT display_name FROM users WHERE id = ?", (uid,)).fetchone()
+            members.append("You" if key == me else (row[0] if row and row[0] else uid.split("@")[0]))
+        out.append({"id": gid, "name": name_row[0] if name_row else None, "members": members})
+    return {"groups": out}
+
+
+@router.post("/groups/rename")
+def rename_group(group_id: str = Query(...), name: str = Query(""), user_id: str = Depends(get_current_user)):
+    """Any member can name a group; blank clears the name."""
+    if not GROUP_ID_RE.match(group_id) or not is_member(group_id, user_id):
+        raise HTTPException(status_code=404, detail="You're not in that group.")
+    clean = clean_group_name(name)
+    conn.execute("UPDATE groups SET name = ? WHERE id = ?", (clean, group_id))
+    conn.commit()
+    return {"id": group_id, "name": clean}
+
+
+@router.post("/groups/leave")
+def leave_group(group_id: str = Query(...), user_id: str = Depends(get_current_user)):
+    """Leaves a group: you stop seeing its calendars and its members stop
+    seeing yours. The link keeps working for everyone else."""
+    if not GROUP_ID_RE.match(group_id):
+        raise HTTPException(status_code=400, detail="That group link isn't valid.")
+    conn.execute(
+        "DELETE FROM group_members WHERE group_id = ? AND LOWER(TRIM(user_id)) = ?",
+        (group_id, user_id.strip().lower())
+    )
+    conn.commit()
+    return {"left": True}

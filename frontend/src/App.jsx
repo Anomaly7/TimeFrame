@@ -9,6 +9,7 @@ import CalendarView from "./components/CalendarView";
 import MonthView from "./components/MonthView";
 import SettingsPanel from "./components/SettingsPanel";
 import ImportIcs from "./components/ImportIcs";
+import GroupsPanel from "./components/GroupsPanel";
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -241,6 +242,8 @@ export default function App() {
       // join has actually gone through so the group's merged data shows
       // up without needing to touch anything else first.
       fetchAvailability(manualBusy).catch((err) => console.error(err));
+      setActiveGroupId(joiningGroupId);
+      setGroupsRefresh((n) => n + 1);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIdFromLink, tokenFromUrl]);
@@ -389,6 +392,7 @@ export default function App() {
   function clearAll() {
     setManualBusy([]);
     localStorage.removeItem("groupId");
+    setActiveGroupId(null);
     localStorage.removeItem("manualBusy");
     // An empty list also deletes the saved manual blocks on the server.
     fetchAvailability([], { save: true }).catch((err) => console.error(err));
@@ -407,40 +411,16 @@ export default function App() {
     });
   }
 
-  // Short, easy-to-share/type code instead of a full UUID - collisions are
-  // astronomically unlikely at this app's scale (58^8 possibilities).
-  function generateShortGroupId() {
-    const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    const bytes = crypto.getRandomValues(new Uint8Array(8));
-    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+  // Which group's calendars the view shows (null = just your own).
+  const [activeGroupId, setActiveGroupId] = useState(() => localStorage.getItem("groupId"));
+  const [groupsRefresh, setGroupsRefresh] = useState(0);
+
+  function switchGroup(groupId) {
+    if (groupId) localStorage.setItem("groupId", groupId);
+    else localStorage.removeItem("groupId");
+    setActiveGroupId(groupId);
+    fetchAvailability(manualBusy).catch((err) => console.error(err));
   }
-
-  async function createGroupLink() {
-    const groupId = generateShortGroupId();
-
-    // Join first: the server only shows a group's calendars to its members.
-    const res = await fetch(
-      `${API_URL}/groups/join?group_id=${groupId}`,
-      { method: "POST", headers: authHeaders() }
-    );
-    if (!res.ok) {
-      alert("Couldn't create the group link. Please try again.");
-      return;
-    }
-
-    localStorage.setItem("groupId", groupId);
-
-    const link = `${window.location.origin}/?group=${groupId}`;
-
-    navigator.clipboard.writeText(link)
-      .then(() => {
-        alert("Group link copied to clipboard!");
-      })
-      .catch(() => {
-        alert(`Copy this link:\n${link}`);
-      });
-  }
-
 
   // Still verifying a returning session. Usually instant, but a sleeping
   // server can take most of a minute to wake, so say what's happening
@@ -542,8 +522,14 @@ export default function App() {
       <div className="toolbar">
         <button className="btn-ghost" onClick={clearAll}>Clear Schedule</button>
         <button className="btn-ghost" onClick={logout}>Logout / Disconnect Google</button>
-        <button className="btn btn-primary" onClick={createGroupLink}>Create Group Link</button>
       </div>
+
+      <GroupsPanel
+        authHeaders={authHeaders}
+        activeGroupId={activeGroupId}
+        onSwitch={switchGroup}
+        refreshKey={groupsRefresh}
+      />
 
       <p className="tz-note">
         🌐 Your times: <strong>{MY_TIMEZONE}</strong> · Other group members'

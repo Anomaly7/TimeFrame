@@ -127,3 +127,26 @@ def test_members_see_each_others_chosen_names(client):
     # Blank resets to the email default.
     assert client.post("/auth/name", json={"name": ""}, headers=alice).json() == {"name": "alice.smith", "custom_name": False}
     assert client.post("/auth/name", json={"name": "x"}).status_code == 401
+
+
+def test_named_groups_list_rename_and_leave(client):
+    sam = signup(client, "sam@example.com")
+    priya = signup(client, "priya@example.com")
+    client.post("/auth/name", json={"name": "Priya K"}, headers=priya)
+    client.post("/groups/join?group_id=Robo2345&name=Robotics%20team", headers=sam)
+    client.post("/groups/join?group_id=Gym23456", headers=sam)
+    # Joining someone's link never renames their group.
+    client.post("/groups/join?group_id=Robo2345&name=Hijack", headers=priya)
+
+    groups = {g["id"]: g for g in client.get("/groups", headers=sam).json()["groups"]}
+    assert groups["Robo2345"]["name"] == "Robotics team" and groups["Gym23456"]["name"] is None
+    assert sorted(groups["Robo2345"]["members"]) == ["Priya K", "You"]
+
+    assert client.post("/groups/rename?group_id=Gym23456&name=Gym%20crew", headers=sam).json()["name"] == "Gym crew"
+    # Only members can rename.
+    assert client.post("/groups/rename?group_id=Gym23456&name=x", headers=priya).status_code == 404
+
+    client.post("/groups/leave?group_id=Robo2345", headers=sam)
+    assert [g["id"] for g in client.get("/groups", headers=sam).json()["groups"]] == ["Gym23456"]
+    # The link still works for the people still in it.
+    assert [g["members"] for g in client.get("/groups", headers=priya).json()["groups"]] == [["You"]]

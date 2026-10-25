@@ -124,6 +124,13 @@ CREATE TABLE IF NOT EXISTS groups (
 )
 """)
 
+# Optional name members give a group link ("Robotics team"); NULL = unnamed.
+existing_group_columns = {row[0] for row in conn.execute(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'groups'"
+).fetchall()}
+if "name" not in existing_group_columns:
+    conn.execute("ALTER TABLE groups ADD COLUMN name TEXT")
+
 conn.execute("""
 CREATE TABLE IF NOT EXISTS group_members (
     group_id TEXT,

@@ -101,6 +101,10 @@ if "password_hash" not in existing_user_columns:
 # True once Google has proven this person owns the email address.
 if "email_verified" not in existing_user_columns:
     conn.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+# The name group members see on your blocks; NULL = the part of your email
+# before the @.
+if "display_name" not in existing_user_columns:
+    conn.execute("ALTER TABLE users ADD COLUMN display_name TEXT")
 
 conn.execute("""
 CREATE TABLE IF NOT EXISTS busy_times (

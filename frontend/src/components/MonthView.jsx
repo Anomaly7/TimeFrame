@@ -22,8 +22,9 @@ function addDays(dateStr, n) {
 // Same deterministic per-person coloring as CalendarView, kept in sync so a
 // given person always gets the same color across Day/Week/Month.
 // Chips never show what an event is (titles aren't stored), only whose it is.
-function whoseBlock(owner, currentUserId) {
-  return !owner || owner === currentUserId ? "You" : owner.split("@")[0];
+// The owner's chosen name if they've set one (sent with each block).
+function whoseBlock(b, currentUserId) {
+  return !b.owner || b.owner === currentUserId ? "You" : b.owner_name || b.owner.split("@")[0];
 }
 
 function assignPersonColors(owners, currentUserId) {
@@ -61,6 +62,7 @@ export default function MonthView({
   const rankMarker = ["👑", "2", "3"];
 
   const owners = [...new Set(busyTimes.map((b) => b.owner).filter(Boolean))];
+  const ownerNames = Object.fromEntries(busyTimes.map((b) => [b.owner, b.owner_name]));
   const personColorByOwner = assignPersonColors(owners, currentUserId);
 
   // A block appears on every day it covers (multi-day trips, overnight
@@ -123,7 +125,7 @@ export default function MonthView({
                   const personIdx = personColorByOwner[b.owner] ?? 0;
                   return (
                     <span className={`month-event-chip person-${personIdx}`} key={i}>
-                      {whoseBlock(b.owner, currentUserId)}
+                      {whoseBlock(b, currentUserId)}
                     </span>
                   );
                 })}
@@ -138,7 +140,7 @@ export default function MonthView({
         {owners.map((owner) => (
           <span key={owner}>
             <span className={`swatch person-${personColorByOwner[owner]}`} />
-            {owner === currentUserId ? "You" : owner.split("@")[0]}
+            {owner === currentUserId ? "You" : ownerNames[owner] || owner.split("@")[0]}
           </span>
         ))}
         <span>👑 = best free slot that day, ② / ③ = runner-up</span>

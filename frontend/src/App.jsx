@@ -109,6 +109,33 @@ export default function App() {
   // had a chance to verify itself.
   const [email, setEmail] = useState(undefined);
 
+  // The name group members see on your blocks (defaults to your email
+  // before the @); editable from the header.
+  const [myName, setMyName] = useState("");
+  const [hasCustomName, setHasCustomName] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameError, setNameError] = useState("");
+
+  async function saveName(e) {
+    e.preventDefault();
+    setNameError("");
+    try {
+      const res = await fetch(`${API_URL}/auth/name`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ name: nameDraft }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      const data = await res.json();
+      setMyName(data.name);
+      setHasCustomName(!!data.custom_name);
+      setEditingName(false);
+    } catch {
+      setNameError("Couldn't save your name. Try again.");
+    }
+  }
+
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem("viewMode") || "day";
   });
@@ -249,7 +276,11 @@ export default function App() {
         if (!res.ok) throw new Error("Session invalid");
         return res.json();
       })
-      .then(data => setEmail(data.email))
+      .then(data => {
+        setMyName(data.name || "");
+        setHasCustomName(!!data.custom_name);
+        setEmail(data.email);
+      })
       .catch(() => {
         // An expired/invalid token shouldn't leave the app stuck showing
         // stale data behind the gate - drop it and fall back to signed out.
@@ -466,9 +497,35 @@ export default function App() {
           <span className="brand-mark">🗓️</span>
           <h1>TimeFrame</h1>
         </div>
-        <div className="user-chip">
-          Signed in as <strong>{email}</strong>
-        </div>
+        {editingName ? (
+          <form className="user-chip name-form" onSubmit={saveName}>
+            <input
+              value={nameDraft}
+              maxLength={40}
+              autoFocus
+              onFocus={(e) => e.target.select()}
+              placeholder={email.split("@")[0]}
+              aria-label="Your name"
+              onChange={(e) => setNameDraft(e.target.value)}
+            />
+            <button type="submit" className="link-btn">Save</button>
+            <button type="button" className="link-btn muted" onClick={() => { setEditingName(false); setNameError(""); }}>
+              Cancel
+            </button>
+            {nameError && <span className="error-text">{nameError}</span>}
+          </form>
+        ) : (
+          <div className="user-chip" title={email}>
+            Signed in as <strong>{myName || email}</strong>
+            <button
+              className="link-btn"
+              onClick={() => { setNameDraft(hasCustomName ? myName : ""); setEditingName(true); }}
+              title="Change the name your group sees on your blocks"
+            >
+              ✏️ Edit name
+            </button>
+          </div>
+        )}
       </header>
 
       <GoogleConnect connected={googleConnected} />

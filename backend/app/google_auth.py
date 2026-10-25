@@ -5,7 +5,7 @@ if os.getenv("ALLOW_INSECURE_OAUTH") == "1":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 from urllib.parse import quote
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from starlette.responses import RedirectResponse
@@ -189,14 +189,32 @@ def disconnect_google(user_id: str = Depends(get_current_user)):
 
     return {"disconnected": True}
 
+def default_name(user_id: str) -> str:
+    return user_id.split("@")[0]
+
+
 @router.get("/auth/me")
 def me(user_id: str = Depends(get_current_user)):
     row = conn.execute(
-        "SELECT email FROM users WHERE id = ?",
+        "SELECT email, display_name FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
 
-    return {"email": row[0] if row else None}
+    return {
+        "email": row[0] if row else None,
+        "name": (row[1] if row else None) or default_name(user_id),
+        "custom_name": bool(row and row[1]),
+    }
+
+
+@router.post("/auth/name")
+def set_name(body: dict = Body(...), user_id: str = Depends(get_current_user)):
+    """The name group members see on your blocks. Blank = back to the
+    default (the part of your email before the @)."""
+    name = " ".join(str(body.get("name") or "").split())[:40]
+    conn.execute("UPDATE users SET display_name = ? WHERE id = ?", (name or None, user_id))
+    conn.commit()
+    return {"name": name or default_name(user_id), "custom_name": bool(name)}
 
 @router.post("/auth/logout")
 def logout(user_id: str = Depends(get_current_user)):

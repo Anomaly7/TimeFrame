@@ -143,13 +143,14 @@ function assignLanes(blocks) {
 // Blocks never show what an event is (titles aren't stored), only whose
 // it is: "You", or the part of someone's email before the @ (all we have -
 // we only ever store an email, not a display name from their profile).
-function ownerLabel(owner, currentUserId) {
+function ownerLabel(owner, currentUserId, names = {}) {
   if (!owner || owner === currentUserId) return null;
-  return owner.split("@")[0];
+  return names[owner] || owner.split("@")[0];
 }
 
-function whoseBlock(owner, currentUserId) {
-  return ownerLabel(owner, currentUserId) || "You";
+// The owner's chosen name if they've set one (sent with each block).
+function whoseBlock(b, currentUserId) {
+  return ownerLabel(b.owner, currentUserId, { [b.owner]: b.owner_name }) || "You";
 }
 
 // Deterministic color per person: you always get index 0, everyone else
@@ -228,6 +229,7 @@ export default function CalendarView({
   const showHeaders = mode === "week";
 
   const owners = [...new Set(busyTimes.map((b) => b.owner).filter(Boolean))];
+  const ownerNames = Object.fromEntries(busyTimes.map((b) => [b.owner, b.owner_name]));
   const personColorByOwner = assignPersonColors(owners, currentUserId);
 
   return (
@@ -326,7 +328,7 @@ export default function CalendarView({
                   ))}
 
                   {busyLaned.map((b, i) => {
-                    const owner = whoseBlock(b.owner, currentUserId);
+                    const owner = whoseBlock(b, currentUserId);
                     const personIdx = personColorByOwner[b.owner] ?? 0;
                     return (
                       <div
@@ -367,7 +369,7 @@ export default function CalendarView({
         {owners.map((owner) => (
           <span key={owner}>
             <span className={`swatch person-${personColorByOwner[owner]}`} />
-            {owner === currentUserId ? "You" : ownerLabel(owner, null)}
+            {owner === currentUserId ? "You" : ownerLabel(owner, null, ownerNames)}
           </span>
         ))}
         <span><span className="swatch best-free rank-1" /> 👑 Best free slot</span>

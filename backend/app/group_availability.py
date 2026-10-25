@@ -136,6 +136,13 @@ def merge_users_availability(
                 seen_member_keys.add(member_key)
                 member_ids.append(row[0])
 
+    # Each member's chosen name (or their email before the @) - what other
+    # members see on their blocks.
+    names = {}
+    for uid in member_ids:
+        row = conn.execute("SELECT display_name FROM users WHERE id = ?", (uid,)).fetchone()
+        names[uid] = (row[0] if row else None) or uid.split("@")[0]
+
     all_busy = []
     busy_output = []
     seen_intervals = set()
@@ -177,6 +184,7 @@ def merge_users_availability(
                 # being stored: a block only says whose it is.
                 "title": None,
                 "owner": uid,
+                "owner_name": names[uid],
                 "source_timezone": raw_timezone
             })
 

@@ -40,6 +40,17 @@
   padding: 0.35rem 0.8rem;
 }
 
+.name-form input {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  width: 12rem;
+  outline: none;
+}
+.link-btn.muted { color: var(--text-muted); }
+
 .user-chip strong {
   color: var(--text);
   font-weight: 600;

@@ -11,7 +11,7 @@ class FakeConn:
     def __init__(self):
         self.db = sqlite3.connect(":memory:", check_same_thread=False)
         self.db.executescript("""
-            CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, email_verified BOOLEAN DEFAULT FALSE);
+            CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, email_verified BOOLEAN DEFAULT FALSE, display_name TEXT);
             CREATE TABLE busy_times (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, start TEXT, end_time TEXT,
                                      source TEXT, raw_timezone TEXT, title TEXT);
             CREATE TABLE groups (id TEXT PRIMARY KEY);

@@ -108,3 +108,22 @@ def test_a_plain_refresh_never_wipes_saved_manual_blocks(client):
     # ...while an explicit save of an empty list (Clear) still clears them.
     client.post(url, json=[], headers=alice)
     assert client.get("/availability/manual", headers=alice).json()["blocks"] == []
+
+
+def test_members_see_each_others_chosen_names(client):
+    alice = signup(client, "alice.smith@example.com")
+    bob = signup(client, "bob@example.com")
+    assert client.get("/auth/me", headers=alice).json()["name"] == "alice.smith"  # default
+    r = client.post("/auth/name", json={"name": "  Alice   S  "}, headers=alice)
+    assert r.json() == {"name": "Alice S", "custom_name": True}
+    for h in (alice, bob):
+        client.post("/groups/join?group_id=Abc23456", headers=h)
+    url = "/availability/merge?days=7&start_offset=0&timezone=America/Vancouver&group=Abc23456"
+    client.post(url, json=[[{"start": "2031-01-01T10:00", "end": "2031-01-01T11:00"}]], headers=alice)
+    client.fake.execute("INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES "
+                        "('alice.smith@example.com', datetime('now', '+1 day'), datetime('now', '+1 day', '+1 hour'), 'manual', 'UTC', NULL)")
+    blocks = client.post(url + "&keep_manual=1", json=[], headers=bob).json()["busy_times"]
+    assert any(b["owner_name"] == "Alice S" for b in blocks)
+    # Blank resets to the email default.
+    assert client.post("/auth/name", json={"name": ""}, headers=alice).json() == {"name": "alice.smith", "custom_name": False}
+    assert client.post("/auth/name", json={"name": "x"}).status_code == 401

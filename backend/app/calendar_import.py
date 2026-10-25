@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.auth_utils import get_current_user
 from app.db import conn
+from app.busy_store import insert_busy_rows
 
 router = APIRouter()
 PST = ZoneInfo("America/Los_Angeles")
@@ -42,6 +43,7 @@ async def import_ics(file: UploadFile = File(...), user_id: str = Depends(get_cu
     )
 
     imported = 0
+    rows = []
 
     for event in events[:MAX_EVENTS]:
         if event.get("dtstart") is None:
@@ -67,12 +69,10 @@ async def import_ics(file: UploadFile = File(...), user_id: str = Depends(get_cu
             start_dt = raw_start.astimezone(PST) if raw_start.tzinfo else raw_start.replace(tzinfo=PST)
             end_dt = raw_end.astimezone(PST) if raw_end.tzinfo else raw_end.replace(tzinfo=PST)
 
-        conn.execute(
-            "INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, start_dt.isoformat(), end_dt.isoformat(), "ics", str(PST), title)
-        )
+        rows.append((user_id, start_dt.isoformat(), end_dt.isoformat(), "ics", str(PST), title))
         imported += 1
 
+    insert_busy_rows(rows)
     conn.commit()
 
     return {"imported": imported}

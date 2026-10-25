@@ -13,6 +13,7 @@ from app.availability import parse_event, find_free_time, PST
 from app.auth_utils import create_oauth_state, create_session_token, get_current_user, verify_oauth_state
 from datetime import datetime, time, timedelta
 from app.db import conn
+from app.busy_store import insert_busy_rows
 
 
 router = APIRouter()
@@ -120,7 +121,10 @@ def callback(request: Request):
             singleEvents=True,
             orderBy="startTime",
             maxResults=2500,
-            pageToken=page_token
+            pageToken=page_token,
+            # Only what parse_event reads - a much smaller response than full
+            # event objects (attendees, descriptions, links, ...).
+            fields="nextPageToken,items(start,end,summary)"
         ).execute()
         events.extend(events_result.get("items", []))
         page_token = events_result.get("nextPageToken")
@@ -135,11 +139,10 @@ def callback(request: Request):
         (user_id,)
     )
 
-    for start, end, raw_timezone, title in busy:
-        conn.execute(
-            "INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, start.isoformat(), end.isoformat(), "google", raw_timezone, title)
-        )
+    insert_busy_rows(
+        (user_id, start.isoformat(), end.isoformat(), "google", raw_timezone, title)
+        for start, end, raw_timezone, title in busy
+    )
 
     conn.commit()
 

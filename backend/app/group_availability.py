@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta
 from app.availability import merge_intervals, find_free_time, score_slot
 from app.auth_utils import get_current_user
 from app.db import conn
+from app.busy_store import insert_busy_rows
 
 router = APIRouter()
 PST = ZoneInfo("America/Los_Angeles")
@@ -101,11 +102,10 @@ def merge_users_availability(
         (user_id,)
     )
 
-    for start_dt, end_dt, title in manual_blocks:
-        conn.execute(
-            "INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, start_dt.isoformat(), end_dt.isoformat(), "manual", str(viewer_tz), title)
-        )
+    insert_busy_rows(
+        (user_id, start_dt.isoformat(), end_dt.isoformat(), "manual", str(viewer_tz), title)
+        for start_dt, end_dt, title in manual_blocks
+    )
 
     conn.commit()
 

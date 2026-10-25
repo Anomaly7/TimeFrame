@@ -10,8 +10,12 @@ CHUNK = 500
 
 def insert_busy_rows(rows):
     """rows: (user_id, start_iso, end_iso, source, raw_timezone, title) tuples.
-    The caller commits."""
-    rows = list(rows)
+    The caller commits.
+
+    Privacy: only *when* someone is busy is ever stored, never what the event
+    is - the title is always dropped here, whatever the source (Google, .ics
+    or manual), so group members only ever see a block and whose it is."""
+    rows = [(u, s, e, src, tz, None) for u, s, e, src, tz, _title in rows]
     for i in range(0, len(rows), CHUNK):
         chunk = rows[i:i + CHUNK]
         placeholders = ", ".join(["(?, ?, ?, ?, ?, ?)"] * len(chunk))

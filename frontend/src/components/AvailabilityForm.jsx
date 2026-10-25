@@ -33,7 +33,6 @@ export default function AvailabilityForm({
   const [startTime, setStartTime] = useState("09:00");
   const [endDate, setEndDate] = useState(todayLocal());
   const [endTime, setEndTime] = useState("10:00");
-  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,9 +41,8 @@ export default function AvailabilityForm({
 
     setManualBusy([
       ...manualBusy,
-      { start: `${startDate}T${startTime}`, end: `${endDate}T${endTime}`, title: title.trim() }
+      { start: `${startDate}T${startTime}`, end: `${endDate}T${endTime}` }
     ]);
-    setTitle("");
   }
 
   function removeBusy(index) {
@@ -70,14 +68,6 @@ export default function AvailabilityForm({
       <div className="card-title">
         <h2>Manual Busy Times</h2>
       </div>
-
-      <input
-        type="text"
-        placeholder="Activity name (optional)"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="activity-name-input"
-      />
 
       <div className="datetime-row">
         <div className="datetime-group">
@@ -116,7 +106,6 @@ export default function AvailabilityForm({
           {manualBusy.map((b, i) => (
             <li className="chip" key={i}>
               <span>
-                {b.title && <strong>{b.title} · </strong>}
                 {formatLocal(b.start)} → {formatLocal(b.end)}
               </span>
               <button

@@ -8,8 +8,9 @@ def test_batched_insert_keeps_every_row_across_chunks(client):
              "google", "America/Vancouver", f"Event {i}") for i in range(n)]
     insert_busy_rows(rows)
     insert_busy_rows([])  # nothing to save is fine
-    saved = client.fake.execute("SELECT title FROM busy_times WHERE user_id = 'u@example.com' ORDER BY id").fetchall()
-    assert [t for (t,) in saved] == [f"Event {i}" for i in range(n)]
+    saved = client.fake.execute("SELECT start, title FROM busy_times WHERE user_id = 'u@example.com' ORDER BY id").fetchall()
+    assert [s for s, _ in saved] == [r[1] for r in rows]
+    assert all(t is None for _, t in saved)  # titles are never stored
 
 
 def test_manual_blocks_still_round_trip_through_merge(client):
@@ -18,8 +19,8 @@ def test_manual_blocks_still_round_trip_through_merge(client):
     url = "/availability/merge?days=7&start_offset=0&timezone=America/Vancouver"
     client.post(url, json=blocks, headers=alice)
     client.post(url, json=blocks, headers=alice)  # saving again replaces, never duplicates
-    rows = client.fake.execute("SELECT title FROM busy_times WHERE user_id = 'alice@example.com' AND source = 'manual'").fetchall()
-    assert sorted(t for (t,) in rows) == [f"Block {d}" for d in range(1, 6)]
+    rows = client.fake.execute("SELECT start, title FROM busy_times WHERE user_id = 'alice@example.com' AND source = 'manual'").fetchall()
+    assert len(rows) == 5 and all(t is None for _, t in rows)
 
 
 def test_google_callback_saves_every_event_page(client, monkeypatch):
@@ -59,7 +60,7 @@ def test_google_callback_saves_every_event_page(client, monkeypatch):
 
     r = client.get("/auth/callback?state=x&code=y", follow_redirects=False)
     assert r.status_code == 307 and "#user=gal%40example.com&token=" in r.headers["location"]
-    assert all(c["fields"] == "nextPageToken,items(start,end,summary)" for c in calls)
+    assert all(c["fields"] == "nextPageToken,items(start,end)" for c in calls)  # titles never requested
     (count,) = client.fake.execute("SELECT COUNT(*) FROM busy_times WHERE user_id = 'gal@example.com' AND source = 'google'").fetchone()
     assert count == 1350
 
@@ -67,3 +68,20 @@ def test_google_callback_saves_every_event_page(client, monkeypatch):
     client.get("/auth/callback?state=x&code=y", follow_redirects=False)
     (count,) = client.fake.execute("SELECT COUNT(*) FROM busy_times WHERE user_id = 'gal@example.com' AND source = 'google'").fetchone()
     assert count == 1350
+
+
+def test_blocks_only_say_whose_they_are(client):
+    alice = signup(client, "alice@example.com")
+    bob = signup(client, "bob@example.com")
+    client.post("/groups/join?group_id=Abc23456", headers=alice)
+    client.post("/groups/join?group_id=Abc23456", headers=bob)
+    url = "/availability/merge?days=7&start_offset=0&timezone=America/Vancouver&group=Abc23456"
+    client.post(url, json=[[{"start": "2031-01-01T10:00", "end": "2031-01-01T11:00", "title": "Doctor"}]], headers=alice)
+    # A title saved before this change must not leak either.
+    client.fake.execute("INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES "
+                        "('alice@example.com', datetime('now', '+1 day'), datetime('now', '+1 day', '+1 hour'), 'google', 'UTC', 'Therapy')")
+    r = client.post(url, json=[], headers=bob)
+    body = r.text
+    assert "Doctor" not in body and "Therapy" not in body
+    assert all(b["title"] is None for b in r.json()["busy_times"])
+    assert any(b["owner"] == "alice@example.com" for b in r.json()["busy_times"])

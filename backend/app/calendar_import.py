@@ -59,7 +59,6 @@ async def import_ics(file: UploadFile = File(...), user_id: str = Depends(get_cu
             raw_end = raw_start + timedelta(days=1)
         else:
             continue
-        title = str(event.get("summary") or "")[:200]
 
         # All-day events come back as bare `date` objects, not `datetime`.
         if isinstance(raw_start, date) and not isinstance(raw_start, datetime):
@@ -69,7 +68,7 @@ async def import_ics(file: UploadFile = File(...), user_id: str = Depends(get_cu
             start_dt = raw_start.astimezone(PST) if raw_start.tzinfo else raw_start.replace(tzinfo=PST)
             end_dt = raw_end.astimezone(PST) if raw_end.tzinfo else raw_end.replace(tzinfo=PST)
 
-        rows.append((user_id, start_dt.isoformat(), end_dt.isoformat(), "ics", str(PST), title))
+        rows.append((user_id, start_dt.isoformat(), end_dt.isoformat(), "ics", str(PST), None))
         imported += 1
 
     insert_busy_rows(rows)

@@ -122,9 +122,9 @@ def callback(request: Request):
             orderBy="startTime",
             maxResults=2500,
             pageToken=page_token,
-            # Only what parse_event reads - a much smaller response than full
-            # event objects (attendees, descriptions, links, ...).
-            fields="nextPageToken,items(start,end,summary)"
+            # Only the times - never titles, descriptions, attendees or links
+            # (busy blocks only show whose they are). Also a much smaller response.
+            fields="nextPageToken,items(start,end)"
         ).execute()
         events.extend(events_result.get("items", []))
         page_token = events_result.get("nextPageToken")
@@ -140,8 +140,8 @@ def callback(request: Request):
     )
 
     insert_busy_rows(
-        (user_id, start.isoformat(), end.isoformat(), "google", raw_timezone, title)
-        for start, end, raw_timezone, title in busy
+        (user_id, start.isoformat(), end.isoformat(), "google", raw_timezone, None)
+        for start, end, raw_timezone, _title in busy
     )
 
     conn.commit()

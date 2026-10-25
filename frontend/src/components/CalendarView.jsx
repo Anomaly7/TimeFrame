@@ -113,13 +113,16 @@ function assignLanes(blocks) {
   return placed;
 }
 
-// A group member's own busy block never needs a label - it's obviously
-// yours. Someone else's block shows the part of their email before the
-// @, which is all we have (we only ever store an email, not a display
-// name pulled from their Google profile).
+// Blocks never show what an event is (titles aren't stored), only whose
+// it is: "You", or the part of someone's email before the @ (all we have -
+// we only ever store an email, not a display name from their profile).
 function ownerLabel(owner, currentUserId) {
   if (!owner || owner === currentUserId) return null;
   return owner.split("@")[0];
+}
+
+function whoseBlock(owner, currentUserId) {
+  return ownerLabel(owner, currentUserId) || "You";
 }
 
 // Deterministic color per person: you always get index 0, everyone else
@@ -287,7 +290,7 @@ export default function CalendarView({
                   ))}
 
                   {busyLaned.map((b, i) => {
-                    const owner = ownerLabel(b.owner, currentUserId);
+                    const owner = whoseBlock(b.owner, currentUserId);
                     const personIdx = personColorByOwner[b.owner] ?? 0;
                     return (
                       <div
@@ -299,25 +302,13 @@ export default function CalendarView({
                           left: `calc(${(b.lane / b.laneCount) * 100}% + 2px)`,
                           width: `calc(${100 / b.laneCount}% - 4px)`
                         }}
-                        title={`${b.title || b.label || "Busy"}${owner ? ` · ${owner}` : ""}`}
+                        title={`${owner} · ${formatBlockTime(b.start, timezone)} – ${formatBlockTime(b.end, timezone)}`}
                       >
                         <div className="block-content">
-                          {b.title ? (
-                            <>
-                              <span className="block-time">{b.title}</span>
-                              <span className="block-sub">
-                                {formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}
-                              </span>
-                              {owner && <span className="block-sub">{owner}</span>}
-                            </>
-                          ) : (
-                            <>
-                              <span className="block-time">
-                                {formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}
-                              </span>
-                              <span className="block-sub">{owner || b.label}</span>
-                            </>
-                          )}
+                          <span className="block-time">{owner}</span>
+                          <span className="block-sub">
+                            {formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}
+                          </span>
                         </div>
                       </div>
                     );

@@ -64,18 +64,16 @@ def merge_users_availability(
         for block in user:
 
             if isinstance(block, dict):
+                # Any "title" a client sends is ignored: only the time is kept.
                 start, end = block["start"], block["end"]
-                title = block.get("title") or ""
             else:
                 start, end = block
-                title = ""
 
             try:
                 start_dt = datetime.fromisoformat(start)
                 end_dt = datetime.fromisoformat(end)
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail="Busy times must be ISO date-times.")
-            title = str(title)[:200]
 
             # A naive value (e.g. from the manual-entry form) means "in the
             # viewer's own current timezone" - not a fixed Pacific default.
@@ -91,7 +89,7 @@ def merge_users_availability(
 
             if end_dt <= start_dt:
                 continue  # empty or backwards block: nothing to block out
-            manual_blocks.append((start_dt, end_dt, title))
+            manual_blocks.append((start_dt, end_dt, None))
 
     # Persist them so other group members can see this user's busy times too -
     # previously manual entries only ever lived in this one response. Record
@@ -138,11 +136,11 @@ def merge_users_availability(
 
     for uid in member_ids:
         rows = conn.execute(
-            "SELECT start, end_time, source, raw_timezone, title FROM busy_times WHERE user_id = ?",
+            "SELECT start, end_time, source, raw_timezone FROM busy_times WHERE user_id = ?",
             (uid,)
         ).fetchall()
 
-        for start, end, source, raw_timezone, title in rows:
+        for start, end, source, raw_timezone in rows:
             start_dt = datetime.fromisoformat(start).astimezone(viewer_tz)
             end_dt = datetime.fromisoformat(end).astimezone(viewer_tz)
 
@@ -169,7 +167,9 @@ def merge_users_availability(
                     "google": "(imported)",
                     "ics": "(ics)",
                 }.get(source, "(manual)"),
-                "title": title or None,
+                # Never sent, even for rows saved before titles stopped
+                # being stored: a block only says whose it is.
+                "title": None,
                 "owner": uid,
                 "source_timezone": raw_timezone
             })

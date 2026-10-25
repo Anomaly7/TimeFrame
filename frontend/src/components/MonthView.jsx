@@ -21,6 +21,11 @@ function addDays(dateStr, n) {
 
 // Same deterministic per-person coloring as CalendarView, kept in sync so a
 // given person always gets the same color across Day/Week/Month.
+// Chips never show what an event is (titles aren't stored), only whose it is.
+function whoseBlock(owner, currentUserId) {
+  return !owner || owner === currentUserId ? "You" : owner.split("@")[0];
+}
+
 function assignPersonColors(owners, currentUserId) {
   const others = owners.filter((o) => o !== currentUserId).sort();
   const ordered = currentUserId ? [currentUserId, ...others] : others;
@@ -107,7 +112,7 @@ export default function MonthView({
                   const personIdx = personColorByOwner[b.owner] ?? 0;
                   return (
                     <span className={`month-event-chip person-${personIdx}`} key={i}>
-                      {b.title || b.label || "Busy"}
+                      {whoseBlock(b.owner, currentUserId)}
                     </span>
                   );
                 })}

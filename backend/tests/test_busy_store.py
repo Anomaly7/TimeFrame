@@ -140,13 +140,62 @@ def test_named_groups_list_rename_and_leave(client):
 
     groups = {g["id"]: g for g in client.get("/groups", headers=sam).json()["groups"]}
     assert groups["Robo2345"]["name"] == "Robotics team" and groups["Gym23456"]["name"] is None
-    assert sorted(groups["Robo2345"]["members"]) == ["Priya K", "You"]
+    assert sorted(m["name"] for m in groups["Robo2345"]["members"]) == ["Priya K", "You"]
 
     assert client.post("/groups/rename?group_id=Gym23456&name=Gym%20crew", headers=sam).json()["name"] == "Gym crew"
-    # Only members can rename.
+    # Only members can rename (and only the admin, see the admin test).
     assert client.post("/groups/rename?group_id=Gym23456&name=x", headers=priya).status_code == 404
 
     client.post("/groups/leave?group_id=Robo2345", headers=sam)
     assert [g["id"] for g in client.get("/groups", headers=sam).json()["groups"]] == ["Gym23456"]
     # The link still works for the people still in it.
-    assert [g["members"] for g in client.get("/groups", headers=priya).json()["groups"]] == [["You"]]
+    assert [[m["name"] for m in g["members"]] for g in client.get("/groups", headers=priya).json()["groups"]] == [["You"]]
+
+
+def test_group_admin_controls_settings_and_can_remove_people(client):
+    sam = signup(client, "sam@example.com")
+    priya = signup(client, "priya@example.com")
+    client.post("/groups/join?group_id=Team2345&name=Team", headers=sam)
+    client.post("/groups/join?group_id=Team2345", headers=priya)
+
+    g = client.get("/groups", headers=sam).json()["groups"][0]
+    assert g["is_admin"] and not g["claimable"]
+    assert [m["admin"] for m in g["members"] if m["you"]] == [True]
+    assert not client.get("/groups", headers=priya).json()["groups"][0]["is_admin"]
+
+    rules = {"dayStart": "09:00", "dayEnd": "17:00", "meetingLength": 60,
+             "excludeWeekends": True, "timePrefs": ["morning"]}
+    # Members can't change the group's settings or name; the admin can.
+    assert client.post("/groups/settings?group_id=Team2345", json=rules, headers=priya).status_code == 403
+    assert client.post("/groups/rename?group_id=Team2345&name=x", headers=priya).status_code == 403
+    saved = client.post("/groups/settings?group_id=Team2345", json=rules, headers=sam).json()["settings"]
+    assert saved["timePrefs"] == ["morning", "afternoon", "evening"] and saved["meetingLength"] == 60
+    assert client.post("/groups/settings?group_id=Team2345", json={**rules, "dayEnd": "08:00"}, headers=sam).status_code == 400
+
+    # Whatever a member's browser asks for, the group's settings are used.
+    url = "/availability/merge?days=14&start_offset=0&timezone=America/Vancouver&group=Team2345&keep_manual=1&min_minutes=15&day_start=06:00&day_end=23:00&prefer=evening"
+    r = client.post(url, json=[], headers=priya).json()
+    assert r["group_settings"]["meetingLength"] == 60
+    from datetime import date
+    assert all(f["duration_minutes"] == 60 for f in r["ranked_free_time"])
+    assert all(date.fromisoformat(f["date"]).weekday() < 5 for f in r["ranked_free_time"])
+    assert all("09:00" <= f["start"][11:16] and f["end"][11:16] <= "17:00" for f in r["ranked_free_time"])
+
+    # Removing someone: only the admin, not themselves, and no rejoining.
+    assert client.post("/groups/kick?group_id=Team2345&member=sam@example.com", headers=priya).status_code == 403
+    assert client.post("/groups/kick?group_id=Team2345&member=sam@example.com", headers=sam).status_code == 400
+    assert client.post("/groups/kick?group_id=Team2345&member=priya@example.com", headers=sam).json() == {"removed": True}
+    assert client.get("/groups", headers=priya).json()["groups"] == []
+    assert client.post("/groups/join?group_id=Team2345", headers=priya).status_code == 403
+
+
+def test_older_groups_without_an_admin_can_be_claimed_once(client):
+    sam = signup(client, "sam@example.com")
+    priya = signup(client, "priya@example.com")
+    for h in (sam, priya):
+        client.post("/groups/join?group_id=Old23456", headers=h)
+    client.fake.execute("UPDATE groups SET owner = NULL WHERE id = 'Old23456'")  # made before admins existed
+    assert client.get("/groups", headers=priya).json()["groups"][0]["claimable"]
+    assert client.post("/groups/claim?group_id=Old23456", headers=priya).json() == {"is_admin": True}
+    assert client.post("/groups/claim?group_id=Old23456", headers=sam).status_code == 409
+    assert client.get("/groups", headers=priya).json()["groups"][0]["is_admin"]

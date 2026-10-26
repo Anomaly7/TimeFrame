@@ -16,12 +16,15 @@ function linkFor(groupId) {
 // Every group link you're in: make named ones, switch which one the
 // calendar shows, copy a link, rename or leave. Each link stays live until
 // everyone leaves it.
-export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refreshKey }) {
-  const [groups, setGroups] = useState([]);
+// The creator of a link is its admin (👑): only they can rename it, set the
+// group's scheduling settings (in Settings) and remove people. groups lives
+// in App so the active group's settings can drive the calendar.
+export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refreshKey, groups, setGroups, personalSettings }) {
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState(null); // group id being renamed
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(null);
+  const [confirmKick, setConfirmKick] = useState(null); // `${groupId}|${memberId}`
   const [copied, setCopied] = useState(null);
   const [error, setError] = useState("");
 
@@ -35,10 +38,24 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     }
   }
 
+  // Reload on demand, whenever the viewed group changes, every 30 s and
+  // when you come back to the tab - so new members, removals and admin
+  // changes show up without a page reload.
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
+  }, [refreshKey, activeGroupId]);
+
+  useEffect(() => {
+    const tick = () => document.visibilityState === "visible" && load();
+    const timer = setInterval(tick, 30000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function post(path) {
     setError("");
@@ -53,6 +70,12 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     try {
       // Join first: the server only shows a group's calendars to its members.
       await post(`/groups/join?group_id=${id}&name=${encodeURIComponent(newName)}`);
+      // A new group starts with its creator's current settings.
+      await fetch(`${API_URL}/groups/settings?group_id=${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(personalSettings),
+      });
       setNewName("");
       await load();
       onSwitch(id);
@@ -81,6 +104,26 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
       load();
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function kick(groupId, memberId) {
+    try {
+      await post(`/groups/kick?group_id=${groupId}&member=${encodeURIComponent(memberId)}`);
+      setConfirmKick(null);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function claim(groupId) {
+    try {
+      await post(`/groups/claim?group_id=${groupId}`);
+      load();
+    } catch (err) {
+      setError(err.message);
+      load();
     }
   }
 
@@ -146,7 +189,36 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
               ) : (
                 <strong>{g.name || `Unnamed group (${g.id})`}</strong>
               )}
-              <span className="groups-members">{g.members.join(", ")}</span>
+              <span className="groups-members">
+                {g.members.map((m, i) => {
+                  const key = `${g.id}|${m.id}`;
+                  return (
+                    <span key={m.id} className="groups-member">
+                      {m.admin && <span title="Admin">👑 </span>}
+                      {m.name}
+                      {g.is_admin && !m.you && (
+                        confirmKick === key ? (
+                          <>
+                            {" "}
+                            <button className="link-btn danger" onClick={() => kick(g.id, m.id)}>Remove {m.name}?</button>{" "}
+                            <button className="link-btn muted" onClick={() => setConfirmKick(null)}>Cancel</button>
+                          </>
+                        ) : (
+                          <button
+                            className="link-btn muted groups-kick"
+                            onClick={() => setConfirmKick(key)}
+                            aria-label={`Remove ${m.name} from the group`}
+                            title={`Remove ${m.name} from the group`}
+                          >
+                            ✕
+                          </button>
+                        )
+                      )}
+                      {i < g.members.length - 1 && ", "}
+                    </span>
+                  );
+                })}
+              </span>
             </div>
 
             <div className="groups-actions">
@@ -154,7 +226,12 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                 <button className="btn-ghost" onClick={() => onSwitch(g.id)}>View</button>
               )}
               <button className="btn-ghost" onClick={() => copy(g.id)}>{copied === g.id ? "Copied!" : "Copy link"}</button>
-              <button className="btn-ghost" onClick={() => { setRenameDraft(g.name || ""); setRenaming(g.id); }}>Rename</button>
+              {g.is_admin && (
+                <button className="btn-ghost" onClick={() => { setRenameDraft(g.name || ""); setRenaming(g.id); }}>Rename</button>
+              )}
+              {g.claimable && (
+                <button className="btn-ghost" onClick={() => claim(g.id)} title="This older link has no admin yet">Make me admin</button>
+              )}
               {confirmLeave === g.id ? (
                 <>
                   <button className="btn-danger-ghost" onClick={() => leave(g.id)}>Leave?</button>

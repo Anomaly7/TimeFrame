@@ -863,3 +863,12 @@
 .time-prefs-hint { color: var(--text-muted); font-size: 0.85em; }
 .time-prefs-moves { margin-left: auto; display: flex; gap: 4px; }
 .time-prefs-moves .btn-ghost { padding: 2px 8px; }
+
+/* ---- Group settings ownership ---- */
+.settings-fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
+.settings-fieldset:disabled { opacity: 0.6; }
+.settings-note { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 10px; }
+.settings-note.locked { color: var(--text); }
+.groups-member { white-space: nowrap; }
+.groups-kick { padding: 0 2px; font-size: 0.75rem; }
+.link-btn.danger { color: var(--danger); }

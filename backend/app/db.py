@@ -130,6 +130,21 @@ existing_group_columns = {row[0] for row in conn.execute(
 ).fetchall()}
 if "name" not in existing_group_columns:
     conn.execute("ALTER TABLE groups ADD COLUMN name TEXT")
+# The group's admin (whoever created the link; NULL for links made before
+# admins existed - any member can claim those) and the scheduling settings
+# the admin chose (JSON), which everyone viewing the group uses.
+if "owner" not in existing_group_columns:
+    conn.execute("ALTER TABLE groups ADD COLUMN owner TEXT")
+if "settings" not in existing_group_columns:
+    conn.execute("ALTER TABLE groups ADD COLUMN settings TEXT")
+
+# People an admin removed from a group; they can't rejoin with the link.
+conn.execute("""
+CREATE TABLE IF NOT EXISTS group_bans (
+    group_id TEXT,
+    user_id TEXT
+)
+""")
 
 conn.execute("""
 CREATE TABLE IF NOT EXISTS group_members (

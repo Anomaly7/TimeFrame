@@ -4,7 +4,9 @@ const PERIOD_LABELS = {
   evening: ["Evening", "after 5 PM"],
 };
 
-export default function SettingsPanel({ settings, setSettings }) {
+// readOnly: viewing a group you're not the admin of - its settings show but
+// can't be changed. note: who controls these settings, when in a group.
+export default function SettingsPanel({ settings, setSettings, readOnly = false, note = null, error = "" }) {
   function update(patch) {
     setSettings({ ...settings, ...patch });
   }
@@ -23,6 +25,10 @@ export default function SettingsPanel({ settings, setSettings }) {
       <div className="card-title">
         <h2>Settings</h2>
       </div>
+      {note && <p className={`settings-note ${readOnly ? "locked" : ""}`}>{readOnly ? "🔒 " : ""}{note}</p>}
+      {error && <p className="error-text">{error}</p>}
+
+      <fieldset className="settings-fieldset" disabled={readOnly}>
 
       <div className="settings-row time-prefs">
         <div className="settings-field">
@@ -86,6 +92,7 @@ export default function SettingsPanel({ settings, setSettings }) {
           </select>
         </label>
       </div>
+      </fieldset>
     </div>
   );
 }

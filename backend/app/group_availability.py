@@ -1,3 +1,4 @@
+import json
 import re
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -14,6 +15,59 @@ PST = ZoneInfo("America/Los_Angeles")
 # be UUIDs. Anything else is rejected.
 GROUP_ID_RE = re.compile(r"^[A-Za-z0-9-]{6,64}$")
 MAX_BLOCKS = 1000
+
+
+def same_user(a, b) -> bool:
+    return bool(a and b) and a.strip().lower() == b.strip().lower()
+
+
+def group_row(group_id: str):
+    """(name, owner, settings dict or None) for a group, or None."""
+    row = conn.execute("SELECT name, owner, settings FROM groups WHERE id = ?", (group_id,)).fetchone()
+    if not row:
+        return None
+    try:
+        settings = json.loads(row[2]) if row[2] else None
+    except ValueError:
+        settings = None
+    return row[0], row[1], settings
+
+
+def require_admin(group_id: str, user_id: str):
+    if not GROUP_ID_RE.match(group_id) or not is_member(group_id, user_id):
+        raise HTTPException(status_code=404, detail="You're not in that group.")
+    info = group_row(group_id)
+    if not info or not same_user(info[1], user_id):
+        raise HTTPException(status_code=403, detail="Only the group's admin can do that.")
+    return info
+
+
+def clean_settings(body: dict) -> dict:
+    """Validates the scheduling settings an admin sets for a group."""
+    try:
+        day_start = time.fromisoformat(str(body.get("dayStart", "08:00")))
+        day_end = time.fromisoformat(str(body.get("dayEnd", "22:00")))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Day start/end must be times like 08:00.")
+    if day_end <= day_start:
+        raise HTTPException(status_code=400, detail="Day end must be after day start.")
+    try:
+        length = int(body.get("meetingLength", 30))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Meeting length must be a number of minutes.")
+    if not 5 <= length <= 12 * 60:
+        raise HTTPException(status_code=400, detail="Meeting length must be 5 minutes to 12 hours.")
+    prefs = parse_prefer(",".join(body.get("timePrefs") or [])) or []
+    for name in ("afternoon", "morning", "evening"):
+        if name not in prefs:
+            prefs.append(name)
+    return {
+        "dayStart": day_start.strftime("%H:%M"),
+        "dayEnd": day_end.strftime("%H:%M"),
+        "meetingLength": length,
+        "excludeWeekends": bool(body.get("excludeWeekends")),
+        "timePrefs": prefs,
+    }
 
 
 def is_member(group_id: str, user_id: str) -> bool:
@@ -40,6 +94,19 @@ def merge_users_availability(
     prefer: str = Query(None)
     ):
     prefer_order = parse_prefer(prefer)
+
+    # Viewing a group: its admin's settings apply to everyone in it, whatever
+    # this browser has saved locally.
+    group_id = request.query_params.get("group")
+    in_group = bool(group_id and GROUP_ID_RE.match(group_id) and is_member(group_id, user_id))
+    group_settings = (group_row(group_id) or (None, None, None))[2] if in_group else None
+    exclude_weekends = False
+    if group_settings:
+        min_minutes = group_settings["meetingLength"]
+        day_start = group_settings["dayStart"]
+        day_end = group_settings["dayEnd"]
+        prefer_order = group_settings["timePrefs"]
+        exclude_weekends = group_settings["excludeWeekends"]
 
     # The viewer's own current timezone - "today", business hours, and
     # anything they enter manually are all relative to where THEY are right
@@ -125,11 +192,9 @@ def merge_users_availability(
     member_ids = [user_id]
     seen_member_keys = {user_id.strip().lower()}
 
-    group_id = request.query_params.get("group")
-
     # Only members see a group's calendars. A non-member (wrong code, or the
     # join hasn't gone through yet) just gets their own schedule.
-    if group_id and GROUP_ID_RE.match(group_id) and is_member(group_id, user_id):
+    if in_group:
         for row in conn.execute(
             "SELECT user_id FROM group_members WHERE group_id = ?",
             (group_id,)
@@ -198,6 +263,8 @@ def merge_users_availability(
     results = []
 
     for target_date in sorted(date_range):
+        if exclude_weekends and target_date.weekday() >= 5:
+            continue
         day_lo = datetime.combine(target_date, time.min, tzinfo=viewer_tz)
         day_hi = day_lo + timedelta(days=1)
         day_busy_count = sum(1 for s, e in merged_busy if s < day_hi and e > day_lo)
@@ -225,7 +292,9 @@ def merge_users_availability(
 
     return {
         "busy_times": busy_output,
-        "ranked_free_time": results
+        "ranked_free_time": results,
+        # The settings actually used, when a group's admin has set them.
+        "group_settings": group_settings,
     }
 
 @router.get("/availability/manual")
@@ -253,9 +322,16 @@ def join_group(
     the group is new - joining someone's link never renames their group."""
     if not GROUP_ID_RE.match(group_id):
         raise HTTPException(status_code=400, detail="That group link isn't valid.")
+    banned = conn.execute(
+        "SELECT 1 FROM group_bans WHERE group_id = ? AND LOWER(TRIM(user_id)) = ?",
+        (group_id, user_id.strip().lower())
+    ).fetchone()
+    if banned:
+        raise HTTPException(status_code=403, detail="The group's admin removed you from this group.")
+    # Whoever creates the link is its admin.
     conn.execute(
-        "INSERT INTO groups (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
-        (group_id, clean_group_name(name))
+        "INSERT INTO groups (id, name, owner) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",
+        (group_id, clean_group_name(name), user_id)
     )
 
     existing_members = conn.execute(
@@ -289,7 +365,7 @@ def my_groups(user_id: str = Depends(get_current_user)):
 
     out = []
     for gid in group_ids:
-        name_row = conn.execute("SELECT name FROM groups WHERE id = ?", (gid,)).fetchone()
+        name, owner, settings = group_row(gid) or (None, None, None)
         members = []
         seen = set()
         for (uid,) in conn.execute("SELECT user_id FROM group_members WHERE group_id = ?", (gid,)).fetchall():
@@ -298,16 +374,69 @@ def my_groups(user_id: str = Depends(get_current_user)):
                 continue
             seen.add(key)
             row = conn.execute("SELECT display_name FROM users WHERE id = ?", (uid,)).fetchone()
-            members.append("You" if key == me else (row[0] if row and row[0] else uid.split("@")[0]))
-        out.append({"id": gid, "name": name_row[0] if name_row else None, "members": members})
+            members.append({
+                "id": uid,
+                "name": "You" if key == me else (row[0] if row and row[0] else uid.split("@")[0]),
+                "you": key == me,
+                "admin": same_user(owner, uid),
+            })
+        out.append({
+            "id": gid,
+            "name": name,
+            "members": members,
+            "is_admin": same_user(owner, user_id),
+            # Links made before admins existed: any member can claim them.
+            "claimable": owner is None,
+            "settings": settings,
+        })
     return {"groups": out}
+
+
+@router.post("/groups/claim")
+def claim_group(group_id: str = Query(...), user_id: str = Depends(get_current_user)):
+    """Become admin of an older link that has none yet (first come)."""
+    if not GROUP_ID_RE.match(group_id) or not is_member(group_id, user_id):
+        raise HTTPException(status_code=404, detail="You're not in that group.")
+    conn.execute("UPDATE groups SET owner = ? WHERE id = ? AND owner IS NULL", (user_id, group_id))
+    conn.commit()
+    if not same_user((group_row(group_id) or (None, None, None))[1], user_id):
+        raise HTTPException(status_code=409, detail="This group already has an admin.")
+    return {"is_admin": True}
+
+
+@router.post("/groups/settings")
+def set_group_settings(group_id: str = Query(...), body: dict = Body(...), user_id: str = Depends(get_current_user)):
+    """Admin only: the best-time ranking, weekends, meeting length and day
+    hours everyone viewing this group uses."""
+    require_admin(group_id, user_id)
+    settings = clean_settings(body)
+    conn.execute("UPDATE groups SET settings = ? WHERE id = ?", (json.dumps(settings), group_id))
+    conn.commit()
+    return {"settings": settings}
+
+
+@router.post("/groups/kick")
+def kick_member(group_id: str = Query(...), member: str = Query(...), user_id: str = Depends(get_current_user)):
+    """Admin only: removes someone from the group. They can't rejoin with the
+    link, and they stop seeing (and sharing) its calendars."""
+    require_admin(group_id, user_id)
+    if same_user(member, user_id):
+        raise HTTPException(status_code=400, detail="You can't remove yourself. Use Leave instead.")
+    if not is_member(group_id, member):
+        raise HTTPException(status_code=404, detail="That person isn't in this group.")
+    conn.execute(
+        "DELETE FROM group_members WHERE group_id = ? AND LOWER(TRIM(user_id)) = ?",
+        (group_id, member.strip().lower())
+    )
+    conn.execute("INSERT INTO group_bans (group_id, user_id) VALUES (?, ?)", (group_id, member.strip().lower()))
+    conn.commit()
+    return {"removed": True}
 
 
 @router.post("/groups/rename")
 def rename_group(group_id: str = Query(...), name: str = Query(""), user_id: str = Depends(get_current_user)):
-    """Any member can name a group; blank clears the name."""
-    if not GROUP_ID_RE.match(group_id) or not is_member(group_id, user_id):
-        raise HTTPException(status_code=404, detail="You're not in that group.")
+    """Admin only; blank clears the name."""
+    require_admin(group_id, user_id)
     clean = clean_group_name(name)
     conn.execute("UPDATE groups SET name = ? WHERE id = ?", (clean, group_id))
     conn.commit()

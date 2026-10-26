@@ -175,6 +175,46 @@ export default function App() {
     return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
+  // Which group's calendars the view shows (null = just your own).
+  const [activeGroupId, setActiveGroupId] = useState(() => localStorage.getItem("groupId"));
+  const [groupsRefresh, setGroupsRefresh] = useState(0);
+  const [groups, setGroups] = useState([]);
+  const [settingsError, setSettingsError] = useState("");
+
+  // Viewing a group: its admin's settings apply to everyone (the server
+  // enforces this too). Groups made before admins existed have none until
+  // someone claims them, so your own settings apply there.
+  const activeGroup = groups.find((g) => g.id === activeGroupId) || null;
+  const settingsLocked = !!activeGroup && !activeGroup.is_admin && !activeGroup.claimable;
+  const groupAdminName = activeGroup?.members.find((m) => m.admin)?.name;
+
+  async function saveGroupSettings(next) {
+    const groupId = activeGroup.id;
+    setSettingsError("");
+    setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, settings: next } : g)));
+    try {
+      const res = await fetch(`${API_URL}/groups/settings?group_id=${groupId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(next),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Couldn't save the group's settings.");
+      setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, settings: data.settings } : g)));
+    } catch (err) {
+      setSettingsError(err.message);
+      setGroupsRefresh((n) => n + 1);
+    }
+  }
+
+  function changeSettings(next) {
+    if (activeGroup?.is_admin) saveGroupSettings(next);
+    else if (!settingsLocked) setSettings(next);
+  }
+
+  const effectiveSettings = activeGroup?.settings ? { ...settings, ...activeGroup.settings } : settings;
+  const timePrefsKey = effectiveSettings.timePrefs.join(",");
+
   // 🔹 MERGED BUSY TIMES (from backend)
   const [busyTimes, setBusyTimes] = useState(() => {
     const saved = localStorage.getItem("busyTimes");
@@ -242,7 +282,16 @@ export default function App() {
     fetch(
       `${API_URL}/groups/join?group_id=${joiningGroupId}`,
       { method: "POST", headers: authHeaders() }
-    ).then(() => {
+    ).then(async (res) => {
+      if (!res.ok) {
+        // e.g. the group's admin removed you: say so and stay on your own calendar.
+        const detail = (await res.json().catch(() => ({}))).detail;
+        localStorage.removeItem("groupId");
+        setActiveGroupId(null);
+        alert(detail || "Couldn't join that group.");
+        fetchAvailability(manualBusy).catch((err) => console.error(err));
+        return;
+      }
       // The mount-time availability fetch (below) can win the race and
       // complete before this join is processed server-side, showing only
       // your own calendar with no automatic retry - refetch once the
@@ -311,7 +360,8 @@ export default function App() {
       fetchAvailability(manualBusy).catch(err => console.error(err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.dayStart, settings.dayEnd, settings.meetingLength, settings.timePrefs.join(","), viewMode, viewDate]);
+  }, [effectiveSettings.dayStart, effectiveSettings.dayEnd, effectiveSettings.meetingLength,
+      timePrefsKey, effectiveSettings.excludeWeekends, activeGroupId, viewMode, viewDate]);
 
   // Your saved manual blocks live on the server; load them once signed in
   // so every device shows (and keeps) the same list. Until that's done,
@@ -374,7 +424,7 @@ export default function App() {
 
     const { startOffset, days } = getRequestRange(viewMode, viewDate);
 
-    const url = `${API_URL}/availability/merge?min_minutes=${settings.meetingLength}&day_start=${settings.dayStart}&day_end=${settings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}&prefer=${settings.timePrefs.join(",")}${save ? "" : "&keep_manual=1"}`;
+    const url = `${API_URL}/availability/merge?min_minutes=${effectiveSettings.meetingLength}&day_start=${effectiveSettings.dayStart}&day_end=${effectiveSettings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}&prefer=${effectiveSettings.timePrefs.join(",")}${save ? "" : "&keep_manual=1"}`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -417,10 +467,6 @@ export default function App() {
       window.location.reload();
     });
   }
-
-  // Which group's calendars the view shows (null = just your own).
-  const [activeGroupId, setActiveGroupId] = useState(() => localStorage.getItem("groupId"));
-  const [groupsRefresh, setGroupsRefresh] = useState(0);
 
   function switchGroup(groupId) {
     if (groupId) localStorage.setItem("groupId", groupId);
@@ -536,6 +582,9 @@ export default function App() {
         activeGroupId={activeGroupId}
         onSwitch={switchGroup}
         refreshKey={groupsRefresh}
+        groups={groups}
+        setGroups={setGroups}
+        personalSettings={settings}
       />
 
       <p className="tz-note">
@@ -573,7 +622,21 @@ export default function App() {
       </div>
 
       {settingsOpen && (
-        <SettingsPanel settings={settings} setSettings={setSettings} />
+        <SettingsPanel
+          settings={effectiveSettings}
+          setSettings={changeSettings}
+          readOnly={settingsLocked}
+          error={settingsError}
+          note={
+            !activeGroup
+              ? null
+              : activeGroup.is_admin
+                ? `You're the admin of ${activeGroup.name || "this group"}: these settings apply to everyone in it.`
+                : activeGroup.claimable
+                  ? "This group has no admin yet, so your own settings apply. Claim admin in My groups to set them for everyone."
+                  : `Set by the group's admin${groupAdminName ? ` (${groupAdminName})` : ""}. Only they can change these.`
+          }
+        />
       )}
 
       <div className="calendar-nav">
@@ -588,7 +651,7 @@ export default function App() {
           viewDate={viewDate}
           busyTimes={busyTimes}
           freeTimes={freeTimes}
-          excludeWeekends={settings.excludeWeekends}
+          excludeWeekends={effectiveSettings.excludeWeekends}
           currentUserId={localStorage.getItem("userId")}
           onSelectDay={(date) => {
             setViewDate(date);
@@ -601,9 +664,9 @@ export default function App() {
           viewDate={viewDate}
           busyTimes={busyTimes}
           freeTimes={freeTimes}
-          excludeWeekends={settings.excludeWeekends}
-          dayStartHour={parseInt(settings.dayStart.split(":")[0], 10)}
-          dayEndHour={parseInt(settings.dayEnd.split(":")[0], 10)}
+          excludeWeekends={effectiveSettings.excludeWeekends}
+          dayStartHour={parseInt(effectiveSettings.dayStart.split(":")[0], 10)}
+          dayEndHour={parseInt(effectiveSettings.dayEnd.split(":")[0], 10)}
           timezone={MY_TIMEZONE}
           currentUserId={localStorage.getItem("userId")}
         />

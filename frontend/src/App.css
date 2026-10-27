@@ -872,3 +872,7 @@
 .groups-member { white-space: nowrap; }
 .groups-kick { padding: 0 2px; font-size: 0.75rem; }
 .link-btn.danger { color: var(--danger); }
+.groups-member-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.groups-member-list li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.groups-member-list li > span { min-width: 8rem; }
+.groups-member-list .btn-ghost, .groups-member-list .btn-danger-ghost { padding: 2px 10px; font-size: 0.8rem; }

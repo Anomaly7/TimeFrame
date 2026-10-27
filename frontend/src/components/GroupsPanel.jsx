@@ -157,6 +157,8 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
         <button className="btn btn-primary" type="submit">Create group link</button>
       </form>
 
+      {error && <p className="error-text">{error}</p>}
+
       <ul className="groups-list">
         <li className={`groups-row ${!activeGroupId ? "active" : ""}`}>
           <div className="groups-info">
@@ -190,35 +192,34 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                 <strong>{g.name || `Unnamed group (${g.id})`}</strong>
               )}
               <span className="groups-members">
-                {g.members.map((m, i) => {
-                  const key = `${g.id}|${m.id}`;
-                  return (
-                    <span key={m.id} className="groups-member">
-                      {m.admin && <span title="Admin">👑 </span>}
-                      {m.name}
-                      {g.is_admin && !m.you && (
-                        confirmKick === key ? (
+                {g.members.map((m) => `${m.admin ? "👑 " : ""}${m.name}`).join(", ")}
+              </span>
+              {g.is_admin && g.members.some((m) => !m.you) && (
+                <ul className="groups-member-list">
+                  {g.members.filter((m) => !m.you).map((m) => {
+                    const key = `${g.id}|${m.id}`;
+                    return (
+                      <li key={m.id}>
+                        <span>{m.name}</span>
+                        {confirmKick === key ? (
                           <>
-                            {" "}
-                            <button className="link-btn danger" onClick={() => kick(g.id, m.id)}>Remove {m.name}?</button>{" "}
+                            <button className="btn-danger-ghost" onClick={() => kick(g.id, m.id)}>Yes, remove</button>
                             <button className="link-btn muted" onClick={() => setConfirmKick(null)}>Cancel</button>
                           </>
                         ) : (
                           <button
-                            className="link-btn muted groups-kick"
+                            className="btn-ghost"
                             onClick={() => setConfirmKick(key)}
                             aria-label={`Remove ${m.name} from the group`}
-                            title={`Remove ${m.name} from the group`}
                           >
-                            ✕
+                            Remove
                           </button>
-                        )
-                      )}
-                      {i < g.members.length - 1 && ", "}
-                    </span>
-                  );
-                })}
-              </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
             <div className="groups-actions">
@@ -244,8 +245,6 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
           </li>
         ))}
       </ul>
-
-      {error && <p className="error-text">{error}</p>}
     </div>
   );
 }

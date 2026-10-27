@@ -159,3 +159,20 @@ conn.execute("CREATE INDEX IF NOT EXISTS busy_times_user_source ON busy_times (u
 conn.execute("CREATE INDEX IF NOT EXISTS group_members_group ON group_members (group_id)")
 
 conn.commit()
+
+# Supabase publishes every table in the public schema through its automatic
+# REST API, which anyone holding the project's public (anon) key can call.
+# This app never uses that API: the backend connects directly as the tables'
+# owner, which Row-Level Security doesn't restrict. So turning RLS on with no
+# policies closes the public API without changing anything for the app.
+# Each table is done separately and failures are only logged, so this can
+# never stop the server from starting.
+for (_table,) in conn.execute(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity"
+).fetchall():
+    try:
+        conn.execute(f'ALTER TABLE public."{_table}" ENABLE ROW LEVEL SECURITY')
+        conn.commit()
+        print(f"Row-Level Security enabled on {_table}")
+    except psycopg2.Error as e:
+        print(f"Could not enable Row-Level Security on {_table}: {e}")

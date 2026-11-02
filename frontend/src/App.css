@@ -876,3 +876,81 @@
 .groups-member-list li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
 .groups-member-list li > span { min-width: 8rem; }
 .groups-member-list .btn-ghost, .groups-member-list .btn-danger-ghost { padding: 2px 10px; font-size: 0.8rem; }
+
+/* ================================================================
+   Phones (up to ~640px wide)
+   ================================================================ */
+@media (max-width: 640px) {
+  .app { padding: 1rem 0.75rem calc(2.5rem + env(safe-area-inset-bottom)); }
+
+  /* Header: brand on its own line, the name chip full width underneath */
+  .app-header { flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1rem; }
+  .brand h1 { font-size: 1.25rem; }
+  .user-chip { width: 100%; flex-wrap: wrap; border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; }
+  .user-chip strong { overflow-wrap: anywhere; }
+  .name-form input { flex: 1 1 8rem; width: auto; min-width: 0; }
+
+  .card { padding: 1rem; margin-bottom: 0.9rem; }
+
+  /* iOS zooms into any field under 16px when you tap it; keep them at 16px */
+  input, select, textarea { font-size: 16px; }
+
+  /* Comfortable tap targets */
+  button, .btn { min-height: 44px; }
+  .link-btn, .chip-remove, .groups-kick, .wheel-item { min-height: 0; }
+
+  .toolbar > button, .form-actions > button { flex: 1 1 auto; }
+
+  /* Busy-time form: stack start and end, drop the arrow */
+  .datetime-row { flex-direction: column; align-items: stretch; }
+  .datetime-row .arrow { display: none; }
+  .datetime-group { flex: 1 1 auto; }
+
+  /* Day / Week / Month tabs share the width */
+  .tabs { gap: 0; }
+  .tab { flex: 1; text-align: center; padding: 0.7em 0.2em; }
+  .settings-toggle { margin-left: 0; padding: 0.5em 0.9em; }
+
+  /* Calendar nav: arrows + Today on one line, the date range under them */
+  .calendar-nav { flex-wrap: wrap; }
+  .calendar-nav .btn-ghost { min-width: 44px; }
+  .calendar-nav-label { width: 100%; margin: 0.3rem 0 0; }
+
+  /* Week view: each day keeps a readable width; swipe sideways for the rest.
+     The hour labels stay put because they sit outside the scroller. */
+  .calendar-hours { width: 2.8rem; }
+  .timeline-hour-label { font-size: 0.66rem; padding-right: 0.3rem; }
+  .calendar.is-week .calendar-main { overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  .calendar.is-week .calendar-headers-row,
+  .calendar.is-week .calendar-grid-frame { min-width: calc(var(--cols, 7) * 76px); }
+  .calendar.is-week .calendar-day-header { scroll-snap-align: start; }
+
+  /* Month view: shorter cells, events become colour bars instead of tiny text */
+  .month-cell { min-height: 3.6rem; padding: 0.2rem; }
+  .month-weekday-label { font-size: 0.65rem; }
+  .month-event-chip { font-size: 0; height: 4px; padding: 0; border-radius: 2px; }
+  .month-event-chip.person-0 { background: var(--person-0); }
+  .month-event-chip.person-1 { background: var(--person-1); }
+  .month-event-chip.person-2 { background: var(--person-2); }
+  .month-event-chip.person-3 { background: var(--person-3); }
+  .month-event-chip.person-4 { background: var(--person-4); }
+  .month-event-chip.person-5 { background: var(--person-5); }
+  .month-event-more { font-size: 0.58rem; }
+  .month-best-marker { top: 0.15rem; right: 0.2rem; }
+
+  .timeline-legend { gap: 0.6rem 1rem; }
+
+  /* Groups */
+  .groups-new .activity-name-input { min-width: 0; flex: 1 1 100%; }
+  .groups-new > button { flex: 1 1 auto; }
+  .groups-row { align-items: flex-start; }
+  .groups-actions { width: 100%; }
+  .groups-member-list li { flex-wrap: wrap; }
+  .groups-member-list li > span { min-width: 0; flex: 1 1 auto; }
+  .groups-member-list .btn-ghost, .groups-member-list .btn-danger-ghost { min-height: 36px; }
+
+  /* Settings */
+  .settings-panel .settings-row { flex-direction: column; gap: 0.8rem; }
+  .time-prefs-list { max-width: none; }
+  .time-prefs-moves .btn-ghost { min-height: 36px; padding: 2px 12px; }
+}

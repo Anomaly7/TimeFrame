@@ -238,7 +238,8 @@ export default function CalendarView({
         <h2>Calendar</h2>
       </div>
 
-      <div className="calendar">
+      {/* --cols lets the phone layout give each day a readable width and scroll sideways */}
+      <div className={`calendar ${mode === "week" ? "is-week" : ""}`} style={{ "--cols": dates.length }}>
         <div className="calendar-hours">
           {showHeaders && <div className="calendar-header-spacer" />}
           <div className="calendar-hours-track" style={{ height: `${totalHeight}px` }}>

@@ -115,4 +115,4 @@ The endpoint tests use an in-memory SQLite stand-in, so no database is needed.
 ## Author
 
 **Samuel Esebor**
-UBC Computer Engineering student, Full-stack developer with ML and microelectronics background. Checkout my linkedin at linkedin.com/in/samuel-esebor.com
+Computer engineering student at UBC Okanagan. [Portfolio](https://samuel-esebor.vercel.app) · [LinkedIn](https://www.linkedin.com/in/samuel-esebor)

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { API_URL } from "../config";
 
 export default function ImportIcs({ onImported }) {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -12,14 +12,15 @@ export default function ImportIcs({ onImported }) {
       setStatus("Connect Google Calendar or sign in first.");
       return;
     }
-    if (!file) return;
+    if (!files.length) return;
 
     setLoading(true);
     setStatus("");
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      // Several files at once (e.g. a class timetable and a work schedule): they import together.
+      for (const f of files) formData.append("files", f);
 
       const res = await fetch(
         `${API_URL}/import/ics`,
@@ -32,8 +33,9 @@ export default function ImportIcs({ onImported }) {
       }
 
       const data = await res.json();
-      setStatus(`Imported ${data.imported} event${data.imported === 1 ? "" : "s"}.`);
-      setFile(null);
+      const from = files.length > 1 ? ` from ${files.length} files` : "";
+      setStatus(`Imported ${data.imported} event${data.imported === 1 ? "" : "s"}${from}.`);
+      setFiles([]);
       await onImported();
     } catch (err) {
       console.error(err);
@@ -49,16 +51,18 @@ export default function ImportIcs({ onImported }) {
         <h2>Import Calendar File</h2>
       </div>
       <p className="card-subtitle">
-        Upload a .ics file exported from Outlook, Apple Calendar, or another app.
+        Upload one or more .ics files exported from Outlook, Apple Calendar, or another app. Pick them all at
+        once: each import replaces the previous one.
       </p>
 
       <div className="btn-row">
         <input
           type="file"
           accept=".ics"
-          onChange={(e) => setFile(e.target.files[0] || null)}
+          multiple
+          onChange={(e) => setFiles(Array.from(e.target.files || []).slice(0, 10))}
         />
-        <button className="btn btn-primary" onClick={upload} disabled={!file || loading}>
+        <button className="btn btn-primary" onClick={upload} disabled={!files.length || loading}>
           {loading && <span className="spinner" />}
           {loading ? "Importing..." : "Import"}
         </button>

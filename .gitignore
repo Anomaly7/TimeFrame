@@ -16,3 +16,5 @@ node_modules/
 .venv/
 frontend/dist/
 .pytest_cache/
+
+backend/.venv-test/

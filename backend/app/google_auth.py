@@ -56,6 +56,66 @@ def blocks_time(event) -> bool:
     return True
 
 
+# Google's built-in "Holidays in ..." and "Birthdays" calendars never make you busy.
+SKIP_CALENDAR_SUFFIXES = ("#holiday@group.v.calendar.google.com", "#contacts@group.v.calendar.google.com")
+
+
+def calendars_to_import(service) -> list:
+    """IDs of the calendars to import: every calendar shown (checked) in the user's
+    Google Calendar, plus the main one. Falls back to just the main calendar if the
+    list can't be read."""
+    ids, page_token = [], None
+    try:
+        while True:
+            res = service.calendarList().list(
+                pageToken=page_token, minAccessRole="reader",
+                fields="nextPageToken,items(id,primary,selected,hidden)",
+            ).execute()
+            for cal in res.get("items", []):
+                cid = cal.get("id", "")
+                if cal.get("primary"):
+                    continue  # added first below, as "primary"
+                if cal.get("hidden") or not cal.get("selected") or cid.endswith(SKIP_CALENDAR_SUFFIXES):
+                    continue
+                ids.append(cid)
+            page_token = res.get("nextPageToken")
+            if not page_token:
+                break
+    except Exception:
+        ids = []
+    return ["primary"] + ids
+
+
+def list_calendar_events(service, calendar_id, time_min, time_max) -> list:
+    # A year of (singleEvents-expanded) events can span many pages - Google caps
+    # each page at maxResults, so keep following nextPageToken until it's exhausted.
+    events, page_token = [], None
+    while True:
+        res = service.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy="startTime",
+            maxResults=2500,
+            pageToken=page_token,
+            # Only the times plus what's needed to tell if the time is really
+            # busy - never titles, descriptions, other attendees or links
+            # (busy blocks only show whose they are). attendees(self,
+            # responseStatus) returns only *your* RSVP, no one else's email.
+            fields="nextPageToken,items(start,end,transparency,eventType,attendees(self,responseStatus))",
+        ).execute()
+        events.extend(res.get("items", []))
+        page_token = res.get("nextPageToken")
+        if not page_token:
+            return events
+
+
+def event_key(event) -> tuple:
+    start, end = event.get("start") or {}, event.get("end") or {}
+    return (start.get("dateTime") or start.get("date"), end.get("dateTime") or end.get("date"))
+
+
 @router.get("/auth/login")
 def login():
     flow = get_flow()
@@ -122,30 +182,22 @@ def callback(request: Request):
     )
     conn.commit()
 
-    # A year of (singleEvents-expanded) events can span many pages -
-    # Google caps each page at maxResults, so keep following nextPageToken
-    # until it's exhausted.
-    events = []
-    page_token = None
-    while True:
-        events_result = service.events().list(
-            calendarId="primary",
-            timeMin=now,
-            timeMax=end,
-            singleEvents=True,
-            orderBy="startTime",
-            maxResults=2500,
-            pageToken=page_token,
-            # Only the times plus what's needed to tell if the time is really
-            # busy - never titles, descriptions, other attendees or links
-            # (busy blocks only show whose they are). attendees(self,
-            # responseStatus) returns only *your* RSVP, no one else's email.
-            fields="nextPageToken,items(start,end,transparency,eventType,attendees(self,responseStatus))"
-        ).execute()
-        events.extend(events_result.get("items", []))
-        page_token = events_result.get("nextPageToken")
-        if not page_token:
-            break
+    # Every calendar the user has turned on in Google Calendar (classes, work,
+    # gym...), not just the main one - each is a different "type" of event.
+    events, seen_elsewhere = [], set()
+    for calendar_id in calendars_to_import(service):
+        try:
+            cal_events = list_calendar_events(service, calendar_id, now, end)
+        except Exception:
+            # One calendar we can't read (e.g. shared as free/busy only) must not
+            # stop the others from importing.
+            if calendar_id == "primary":
+                raise
+            continue
+        # The same event can sit on two calendars (e.g. an invite copied to a shared
+        # calendar): skip copies of events already taken from another calendar.
+        events.extend(e for e in cal_events if event_key(e) not in seen_elsewhere)
+        seen_elsewhere.update(event_key(e) for e in cal_events)
 
     busy = [parse_event(e) for e in events if blocks_time(e)]
 

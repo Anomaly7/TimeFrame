@@ -18,8 +18,8 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 ## What the App Does
 
 - Requires sign-in (Google OAuth or email/password) before showing any schedule data
-- Imports a full year of busy events from Google Calendar
-- Imports `.ics` calendar files exported from Outlook, Apple Calendar, etc.
+- Imports a full year of busy events from Google Calendar, from every calendar you have turned on (not just the main one)
+- Imports `.ics` calendar files exported from Outlook, Apple Calendar, etc. (several at once)
 - Allows users to manually add busy time blocks
 - Merges overlapping schedules automatically
 - Carves out candidate meeting slots of a user-chosen length, positioned near the middle of the day
@@ -38,8 +38,8 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 - The app shows nothing (no data, no UI) until you're signed in
 
 ### Calendar Sources
-- **Google Calendar** — a full year of events synced automatically on connect
-- **.ics import** — upload a file exported from Outlook, Apple Calendar, or any other app
+- **Google Calendar** — a full year of events from every calendar shown in your Google Calendar (classes, work, personal...), synced automatically on connect; holiday and birthday calendars are skipped
+- **.ics import** — upload one or more files exported from Outlook, Apple Calendar, or any other app
 - **Manual entry** — add one-off busy blocks by hand
 
 ### Calendar Views

@@ -954,3 +954,20 @@
   .time-prefs-list { max-width: none; }
   .time-prefs-moves .btn-ghost { min-height: 36px; padding: 2px 12px; }
 }
+
+/* Sign-in options (2026-11-19): one full-width button per way in, logo on the left. */
+.provider-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.provider-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 46px; padding: 0.7rem 2.8rem;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font: inherit; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.provider-btn:hover { border-color: var(--accent); background: var(--surface-muted); }
+.provider-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.provider-btn svg { position: absolute; left: 1rem; width: 20px; height: 20px; }
+.provider-note { margin: 0.4rem 0 0; color: var(--text-muted); font-size: 0.8rem; }
+.provider-form { text-align: left; }
+.link-back { background: none; border: none; padding: 0; margin: 0 0 0.75rem; color: var(--accent); font: inherit; font-size: 0.9rem; cursor: pointer; }
+.link-back:hover { text-decoration: underline; }

@@ -5,8 +5,9 @@ import { API_URL } from "../config";
 // calendars are read with your Apple ID email plus an app-specific password.
 // The password is used once for this import and never saved.
 // On the sign-in page (signedIn = false) it signs in with the Apple ID instead and hands the session to onAuthenticated.
-export default function AppleConnect({ connected, onChanged, signedIn = true, onAuthenticated }) {
-  const [open, setOpen] = useState(false);
+// bare: just the form, already open (used inside the sign-in page's options panel; Cancel calls onCancel).
+export default function AppleConnect({ connected, onChanged, signedIn = true, onAuthenticated, bare = false, onCancel }) {
+  const [open, setOpen] = useState(bare);
   const [appleId, setAppleId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,52 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
     await fetch(`${API_URL}/apple/disconnect`, { method: "POST", headers: headers() }).catch(() => null);
     setStatus("Apple Calendar disconnected.");
     await onChanged();
+  }
+
+  if (bare) {
+    return (
+      <div className="apple-bare">
+        {open && (
+          <form className="email-auth" onSubmit={connect}>
+            <p className="card-subtitle">
+              Sign in with your Apple ID email and an <strong>app-specific password</strong> (not your normal
+              Apple password). Make one at{" "}
+              <a href="https://account.apple.com/account/manage" target="_blank" rel="noreferrer">account.apple.com</a>{" "}
+              → Sign-In and Security → App-Specific Passwords. TimeFrame uses it once to read when you're busy
+              and never saves it.
+            </p>
+            <div className="email-auth-fields">
+              <input
+                type="email"
+                placeholder="Apple ID email"
+                autoComplete="username"
+                value={appleId}
+                onChange={(e) => setAppleId(e.target.value)}
+                required
+              />
+              <input
+                type="password"
+                placeholder="App-specific password (xxxx-xxxx-xxxx-xxxx)"
+                autoComplete="off"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <div className="btn-row">
+                <button className="btn btn-primary" type="submit" disabled={loading}>
+                  {loading && <span className="spinner" />}
+                  {loading ? "Importing..." : signedIn ? "Connect" : "Sign in"}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => { setError(""); if (bare) onCancel?.(); else setOpen(false); }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+            {error && <p className="error-text">{error}</p>}
+          </form>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -106,7 +153,7 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
                 {loading && <span className="spinner" />}
                 {loading ? "Importing..." : signedIn ? "Connect" : "Sign in"}
               </button>
-              <button type="button" className="btn btn-ghost" onClick={() => { setOpen(false); setError(""); }}>
+              <button type="button" className="btn btn-ghost" onClick={() => { setError(""); if (bare) onCancel?.(); else setOpen(false); }}>
                 Cancel
               </button>
             </div>

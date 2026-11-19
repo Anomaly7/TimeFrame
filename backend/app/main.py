@@ -23,7 +23,8 @@ app = FastAPI(
 # Only the real frontend (plus local dev) may call the API from a browser.
 # Auth is a Bearer token, not cookies, so credentials aren't needed.
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
-    "FRONTEND_ORIGINS", "https://calender-app-one-xi.vercel.app,http://localhost:5173"
+    "FRONTEND_ORIGINS",
+    "https://www.timeframecalender.com,https://timeframecalender.com,https://calender-app-one-xi.vercel.app,http://localhost:5173"
 ).split(",") if o.strip()]
 
 app.add_middleware(

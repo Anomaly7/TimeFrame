@@ -125,3 +125,9 @@ def test_cors_only_allows_the_real_frontend(client):
 def test_health_db_runs_a_query(client):
     r = client.get("/health/db")
     assert r.status_code == 200 and r.json()["database"] == "ok"
+
+
+def test_cors_allows_the_custom_domain(client):
+    for origin in ("https://www.timeframecalender.com", "https://timeframecalender.com"):
+        r = client.options("/health", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
+        assert r.headers.get("access-control-allow-origin") == origin

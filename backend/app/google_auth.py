@@ -18,7 +18,7 @@ from app.busy_store import insert_busy_rows
 
 router = APIRouter()
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://calender-app-one-xi.vercel.app").rstrip("/")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.timeframecalender.com").rstrip("/")
 STATE_COOKIE = "oauth_nonce"
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]

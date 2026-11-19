@@ -1,7 +1,7 @@
 # TimeFrame - Calendar Availability App
 
 **Live Demo:**
-👉 https://calender-app-one-xi.vercel.app
+👉 https://www.timeframecalender.com
 
 Google sign-in is restricted to pre-authorized test accounts while the app is in Google's unverified testing mode (message me for access). You don't need Google at all, though — **email/password sign-up works for anyone**.
 
@@ -99,7 +99,7 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 | `REDIRECT_URI` | yes | `https://<api-host>/auth/callback` (must match the Google console) |
 | `NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET` | no | Notion public integration (Notion sign-in/connect is hidden behind an error until set) |
 | `NOTION_REDIRECT_URI` | no | `https://<api-host>/notion/callback` (must match the integration's redirect URI) |
-| `FRONTEND_URL` | no | Where sign-in redirects back to. Default `https://calender-app-one-xi.vercel.app` |
+| `FRONTEND_URL` | no | Where sign-in redirects back to. Default `https://www.timeframecalender.com` |
 | `FRONTEND_ORIGINS` | no | Comma-separated origins allowed to call the API (CORS). Default: the Vercel URL + `http://localhost:5173` |
 | `ALLOW_INSECURE_OAUTH` | local only | Set to `1` only when running the OAuth flow over plain `http://localhost` |
 

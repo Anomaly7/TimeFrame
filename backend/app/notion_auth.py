@@ -36,7 +36,7 @@ from app.db import conn
 
 router = APIRouter()
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://calender-app-one-xi.vercel.app").rstrip("/")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.timeframecalender.com").rstrip("/")
 NOTION_API = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 STATE_COOKIE = "notion_nonce"
@@ -50,7 +50,7 @@ TIMEOUT = 20
 
 def _config():
     cid, secret, redirect = (os.getenv("NOTION_CLIENT_ID"), os.getenv("NOTION_CLIENT_SECRET"),
-                             os.getenv("NOTION_REDIRECT_URI"))
+                             (os.getenv("NOTION_REDIRECT_URI") or os.getenv("NOTION_REDIRECT_URL")))
     if not (cid and secret and redirect):
         return None
     return cid, secret, redirect

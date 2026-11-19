@@ -17,6 +17,7 @@ class FakeConn:
             CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT, owner TEXT, settings TEXT);
             CREATE TABLE group_bans (group_id TEXT, user_id TEXT);
             CREATE TABLE group_members (group_id TEXT, user_id TEXT);
+            CREATE TABLE calendar_links (user_id TEXT, source TEXT);
         """)
 
     def execute(self, sql, params=()):

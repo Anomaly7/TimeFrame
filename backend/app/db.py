@@ -153,6 +153,15 @@ CREATE TABLE IF NOT EXISTS group_members (
 )
 """)
 
+# Calendar accounts connected without OAuth refresh tokens being kept
+# (Apple via app-specific password, Notion): just "this user linked it".
+conn.execute("""
+CREATE TABLE IF NOT EXISTS calendar_links (
+    user_id TEXT,
+    source TEXT
+)
+""")
+
 # Every request looks rows up by user / group; without these each lookup
 # scans the whole table.
 conn.execute("CREATE INDEX IF NOT EXISTS busy_times_user_source ON busy_times (user_id, source)")

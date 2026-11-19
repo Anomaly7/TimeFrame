@@ -32,9 +32,18 @@ def ics_rows(content: bytes, user_id: str, window_start, window_end) -> list:
     except Exception:
         raise HTTPException(status_code=400, detail="Could not read events from that .ics file")
 
+    return event_rows(events, user_id, "ics")
+
+
+def event_rows(events, user_id: str, source: str, skip_free: bool = False) -> list:
+    """Busy rows from expanded icalendar VEVENTs (an .ics file or Apple Calendar).
+    skip_free drops events marked "Free" (TRANSP:TRANSPARENT) and cancelled ones."""
     rows = []
     for event in events[:MAX_EVENTS]:
         if event.get("dtstart") is None:
+            continue
+        if skip_free and (str(event.get("transp", "")).upper() == "TRANSPARENT"
+                          or str(event.get("status", "")).upper() == "CANCELLED"):
             continue
         raw_start = event.get("dtstart").dt
         # DTEND is optional in .ics: fall back to DURATION, then to the start
@@ -56,7 +65,7 @@ def ics_rows(content: bytes, user_id: str, window_start, window_end) -> list:
             start_dt = raw_start.astimezone(PST) if raw_start.tzinfo else raw_start.replace(tzinfo=PST)
             end_dt = raw_end.astimezone(PST) if raw_end.tzinfo else raw_end.replace(tzinfo=PST)
 
-        rows.append((user_id, start_dt.isoformat(), end_dt.isoformat(), "ics", str(PST), None))
+        rows.append((user_id, start_dt.isoformat(), end_dt.isoformat(), source, str(PST), None))
     return rows
 
 

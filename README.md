@@ -17,8 +17,10 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 
 ## What the App Does
 
-- Requires sign-in (Google OAuth or email/password) before showing any schedule data
+- Requires sign-in (Google, Notion or email/password) before showing any schedule data
 - Imports a full year of busy events from Google Calendar, from every calendar you have turned on (not just the main one)
+- Connects Apple Calendar (iCloud) directly with an app-specific password
+- Imports timed entries from Notion databases you share with it
 - Imports `.ics` calendar files exported from Outlook, Apple Calendar, etc. (several at once)
 - Allows users to manually add busy time blocks
 - Merges overlapping schedules automatically
@@ -39,6 +41,8 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 
 ### Calendar Sources
 - **Google Calendar** — a full year of events from every calendar shown in your Google Calendar (classes, work, personal...), synced automatically on connect; holiday and birthday calendars are skipped
+- **Apple Calendar** — every iCloud calendar (not Reminders), a year ahead, via CalDAV with your Apple ID email and an app-specific password; the password is used once for the import and never stored. Events marked "Free" are skipped
+- **Notion** — sign in with Notion or connect it to your account; imports pages with a date-and-time property from the databases you share with TimeFrame (date-only entries such as deadlines aren't busy time; a start with no end counts as 1 hour). The Notion token is used once and never stored
 - **.ics import** — upload one or more files exported from Outlook, Apple Calendar, or any other app
 - **Manual entry** — add one-off busy blocks by hand
 
@@ -93,6 +97,8 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 | `SESSION_SECRET` | yes | Random, **at least 32 characters**. The API refuses to start without it. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth client |
 | `REDIRECT_URI` | yes | `https://<api-host>/auth/callback` (must match the Google console) |
+| `NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET` | no | Notion public integration (Notion sign-in/connect is hidden behind an error until set) |
+| `NOTION_REDIRECT_URI` | no | `https://<api-host>/notion/callback` (must match the integration's redirect URI) |
 | `FRONTEND_URL` | no | Where sign-in redirects back to. Default `https://calender-app-one-xi.vercel.app` |
 | `FRONTEND_ORIGINS` | no | Comma-separated origins allowed to call the API (CORS). Default: the Vercel URL + `http://localhost:5173` |
 | `ALLOW_INSECURE_OAUTH` | local only | Set to `1` only when running the OAuth flow over plain `http://localhost` |

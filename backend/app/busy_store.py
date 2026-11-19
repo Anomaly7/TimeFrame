@@ -23,3 +23,20 @@ def insert_busy_rows(rows):
             "INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES " + placeholders,
             tuple(v for row in chunk for v in row),
         )
+
+
+# Which calendar accounts (Apple, Notion) a user has connected - kept apart
+# from busy_times so an account with no upcoming events still shows "Connected".
+def mark_linked(user_id: str, source: str) -> None:
+    conn.execute("DELETE FROM calendar_links WHERE user_id = ? AND source = ?", (user_id, source))
+    conn.execute("INSERT INTO calendar_links (user_id, source) VALUES (?, ?)", (user_id, source))
+
+
+def is_linked(user_id: str, source: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM calendar_links WHERE user_id = ? AND source = ? LIMIT 1", (user_id, source)
+    ).fetchone() is not None
+
+
+def unlink(user_id: str, source: str) -> None:
+    conn.execute("DELETE FROM calendar_links WHERE user_id = ? AND source = ?", (user_id, source))

@@ -247,6 +247,8 @@ def merge_users_availability(
                 "label": {
                     "google": "(imported)",
                     "ics": "(ics)",
+                    "apple": "(apple)",
+                    "notion": "(notion)",
                 }.get(source, "(manual)"),
                 # Never sent, even for rows saved before titles stopped
                 # being stored: a block only says whose it is.

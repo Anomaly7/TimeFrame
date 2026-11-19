@@ -4,6 +4,8 @@ import { API_URL } from "./config";
 
 import AvailabilityForm from "./components/AvailabilityForm";
 import GoogleConnect from "./components/GoogleConnect";
+import AppleConnect from "./components/AppleConnect";
+import NotionConnect from "./components/NotionConnect";
 import EmailAuth from "./components/EmailAuth";
 import CalendarView from "./components/CalendarView";
 import MonthView from "./components/MonthView";
@@ -229,6 +231,11 @@ export default function App() {
   const groupIdFromLink = params.get("group");
   const tokenFromUrl = hashParams.get("token") || params.get("token");
   const authError = hashParams.get("auth_error");
+  // How many events the Notion sign-in just imported (read once: the address bar is cleaned below).
+  const [notionImported] = useState(() => {
+    const n = hashParams.get("notion");
+    return n == null ? null : Number(n);
+  });
 
   // The session token proves who's making a request - the backend never
   // trusts a plain user_id from a query param for that (anyone could type
@@ -314,8 +321,36 @@ export default function App() {
       .then((res) => (res.ok ? res.json() : { connected: false }))
       .then((data) => setGoogleConnected(!!data.connected))
       .catch(() => setGoogleConnected(false));
+    refreshLinks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
+
+  // Apple Calendar and Notion connections.
+  const [appleConnected, setAppleConnected] = useState(false);
+  const [notionConnected, setNotionConnected] = useState(false);
+  // Notion needs keys on the server; until they're set its buttons stay hidden.
+  const [notionAvailable, setNotionAvailable] = useState(false);
+  useEffect(() => {
+    fetch(`${API_URL}/notion/available`)
+      .then((res) => (res.ok ? res.json() : { available: false }))
+      .then((data) => setNotionAvailable(!!data.available))
+      .catch(() => setNotionAvailable(false));
+  }, []);
+
+  function refreshLinks() {
+    for (const [path, set] of [["/apple/status", setAppleConnected], ["/notion/status", setNotionConnected]]) {
+      fetch(`${API_URL}${path}`, { headers: authHeaders() })
+        .then((res) => (res.ok ? res.json() : { connected: false }))
+        .then((data) => set(!!data.connected))
+        .catch(() => set(false));
+    }
+  }
+
+  async function onLinksChanged() {
+    refreshLinks();
+    // Re-send the manual blocks: an empty list would delete them server-side.
+    await fetchAvailability(manualBusy);
+  }
 
   // 🔹 FREE TIMES
   const [freeTimes, setFreeTimes] = useState(() => {
@@ -504,6 +539,7 @@ export default function App() {
             Sign in so only you can see and manage your own schedule.
           </p>
           <GoogleConnect connected={false} />
+          {notionAvailable && <NotionConnect signedIn={false} />}
 
           <div className="auth-divider"><span>or</span></div>
 
@@ -562,6 +598,10 @@ export default function App() {
       </header>
 
       <GoogleConnect connected={googleConnected} />
+      <AppleConnect connected={appleConnected} onChanged={onLinksChanged} />
+      {(notionAvailable || notionConnected) && (
+        <NotionConnect signedIn connected={notionConnected} imported={notionImported} onChanged={onLinksChanged} />
+      )}
 
       {/* Re-send the manual blocks: an empty list would delete them server-side. */}
       <ImportIcs onImported={() => fetchAvailability(manualBusy)} />

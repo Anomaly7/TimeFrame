@@ -20,7 +20,7 @@ import icalendar
 import recurring_ical_events
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.auth_utils import RateLimiter, client_ip, get_current_user
+from app.auth_utils import RateLimiter, client_ip, create_session_token, get_current_user
 from app.busy_store import insert_busy_rows, is_linked, mark_linked, unlink
 from app.calendar_import import MAX_EVENTS, PST, event_rows
 from app.db import conn
@@ -142,20 +142,21 @@ def calendar_events(auth: str, cal_url: str, window_start: datetime, window_end:
     return events
 
 
-@router.post("/apple/connect")
-def connect_apple(request: Request, body: dict = Body(...), user_id: str = Depends(get_current_user)):
+def _credentials(body: dict):
     apple_id = str(body.get("apple_id") or "").strip()
     # Apple shows app-specific passwords as xxxx-xxxx-xxxx-xxxx; spaces are a common paste slip.
     password = str(body.get("app_password") or "").strip().replace(" ", "")
     if not apple_id or len(apple_id) > 254 or not password or len(password) > 64:
         raise HTTPException(status_code=400, detail="Enter your Apple ID email and an app-specific password.")
-    apple_limiter.check("ip:" + client_ip(request), "user:" + user_id)
+    return apple_id, password
 
+
+def _read_apple(apple_id: str, password: str) -> list:
+    """Every event in the user's iCloud calendars for the sync window. Raises 401 if Apple rejects the login."""
     auth = base64.b64encode(f"{apple_id}:{password}".encode()).decode()
     today = datetime.now(PST).date()
     window_start = datetime.combine(today - timedelta(days=7), time.min, tzinfo=PST)
     window_end = datetime.combine(today + timedelta(days=366), time.max, tzinfo=PST)
-
     try:
         events = []
         for cal_url in find_calendars(auth):
@@ -163,22 +164,53 @@ def connect_apple(request: Request, body: dict = Body(...), user_id: str = Depen
                 events.extend(calendar_events(auth, cal_url, window_start, window_end))
             except HTTPException:
                 continue  # e.g. a shared calendar we can't read: import the others
+        return events
     except AppleAuthError:
         raise HTTPException(status_code=401, detail=(
             "Apple didn't accept that. Use your Apple ID email and an app-specific password "
             "(not your normal Apple ID password)."))
 
+
+def _save_apple(user_id: str, events: list) -> int:
     rows, seen = [], set()
     for row in event_rows(events, user_id, "apple", skip_free=True):
         if (row[1], row[2]) not in seen:  # the same event on two calendars counts once
             seen.add((row[1], row[2]))
             rows.append(row)
-
     conn.execute("DELETE FROM busy_times WHERE user_id = ? AND source = 'apple'", (user_id,))
     insert_busy_rows(rows)
     mark_linked(user_id, "apple")
     conn.commit()
-    return {"imported": len(rows)}
+    return len(rows)
+
+
+@router.post("/apple/connect")
+def connect_apple(request: Request, body: dict = Body(...), user_id: str = Depends(get_current_user)):
+    apple_id, password = _credentials(body)
+    apple_limiter.check("ip:" + client_ip(request), "user:" + user_id)
+    return {"imported": _save_apple(user_id, _read_apple(apple_id, password))}
+
+
+# Signing in with Apple (from the sign-in page). If iCloud accepts the Apple ID + app-specific password, that
+# proves the person controls that Apple account, the same proof a Google sign-in gives, so the account is the
+# Apple ID email. Same rule as Notion sign-in: never merge into a password account whose email was never verified.
+@router.post("/apple/login")
+def login_apple(request: Request, body: dict = Body(...)):
+    apple_id, password = _credentials(body)
+    email = apple_id.lower()
+    if "@" not in email:
+        raise HTTPException(status_code=400, detail="Use the email address of your Apple ID.")
+    apple_limiter.check("ip:" + client_ip(request), "user:" + email)
+    events = _read_apple(apple_id, password)
+
+    row = conn.execute("SELECT password_hash, email_verified FROM users WHERE id = ?", (email,)).fetchone()
+    if row and row[0] and not row[1]:
+        raise HTTPException(status_code=409, detail=(
+            "An account with this email already uses a password. Sign in with it, then connect Apple Calendar."))
+    if not row:
+        conn.execute("INSERT INTO users (id, email, email_verified) VALUES (?, ?, FALSE)", (email, email))
+    imported = _save_apple(email, events)
+    return {"token": create_session_token(email), "email": email, "imported": imported}
 
 
 @router.get("/apple/status")

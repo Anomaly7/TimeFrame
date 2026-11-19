@@ -4,7 +4,8 @@ import { API_URL } from "../config";
 // Apple has no "Sign in to read my calendar" button for other apps: iCloud
 // calendars are read with your Apple ID email plus an app-specific password.
 // The password is used once for this import and never saved.
-export default function AppleConnect({ connected, onChanged }) {
+// On the sign-in page (signedIn = false) it signs in with the Apple ID instead and hands the session to onAuthenticated.
+export default function AppleConnect({ connected, onChanged, signedIn = true, onAuthenticated }) {
   const [open, setOpen] = useState(false);
   const [appleId, setAppleId] = useState("");
   const [password, setPassword] = useState("");
@@ -22,13 +23,18 @@ export default function AppleConnect({ connected, onChanged }) {
     setError("");
     setStatus("");
     try {
-      const res = await fetch(`${API_URL}/apple/connect`, {
+      const res = await fetch(`${API_URL}/apple/${signedIn ? "connect" : "login"}`, {
         method: "POST",
-        headers: headers(),
+        headers: signedIn ? headers() : { "Content-Type": "application/json" },
         body: JSON.stringify({ apple_id: appleId, app_password: password }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || "Couldn't connect Apple Calendar.");
+      if (!signedIn) {
+        setPassword("");
+        onAuthenticated(data.token, data.email);
+        return;
+      }
       setStatus(`Imported ${data.imported} event${data.imported === 1 ? "" : "s"} from Apple Calendar.`);
       setPassword("");
       setOpen(false);
@@ -50,16 +56,18 @@ export default function AppleConnect({ connected, onChanged }) {
     <div className="card">
       <div className="card-title">
         <h2>Apple Calendar</h2>
-        <span className={`status-pill ${connected ? "connected" : "disconnected"}`}>
-          <span className="dot" />
-          {connected ? "Connected" : "Not connected"}
-        </span>
+        {signedIn && (
+          <span className={`status-pill ${connected ? "connected" : "disconnected"}`}>
+            <span className="dot" />
+            {connected ? "Connected" : "Not connected"}
+          </span>
+        )}
       </div>
 
       {!open && (
         <div className="btn-row">
           <button className="btn btn-primary" onClick={() => setOpen(true)}>
-            {connected ? "Sync Apple Calendar again" : "Connect Apple Calendar"}
+            {!signedIn ? "Sign in with Apple Calendar" : connected ? "Sync Apple Calendar again" : "Connect Apple Calendar"}
           </button>
           {connected && (
             <button className="btn btn-danger-ghost" onClick={disconnect}>Disconnect</button>
@@ -96,7 +104,7 @@ export default function AppleConnect({ connected, onChanged }) {
             <div className="btn-row">
               <button className="btn btn-primary" type="submit" disabled={loading}>
                 {loading && <span className="spinner" />}
-                {loading ? "Importing..." : "Connect"}
+                {loading ? "Importing..." : signedIn ? "Connect" : "Sign in"}
               </button>
               <button type="button" className="btn btn-ghost" onClick={() => { setOpen(false); setError(""); }}>
                 Cancel

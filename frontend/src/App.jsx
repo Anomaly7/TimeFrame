@@ -539,6 +539,14 @@ export default function App() {
             Sign in so only you can see and manage your own schedule.
           </p>
           <GoogleConnect connected={false} />
+          <AppleConnect
+            signedIn={false}
+            onAuthenticated={(token, authedEmail) => {
+              localStorage.setItem("authToken", token);
+              localStorage.setItem("userId", authedEmail);
+              window.location.reload();
+            }}
+          />
           {notionAvailable && <NotionConnect signedIn={false} />}
 
           <div className="auth-divider"><span>or</span></div>

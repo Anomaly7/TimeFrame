@@ -19,7 +19,7 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 
 - Requires sign-in (Google, Notion or email/password) before showing any schedule data
 - Imports a full year of busy events from Google Calendar, from every calendar you have turned on (not just the main one)
-- Connects Apple Calendar (iCloud) directly with an app-specific password
+- Sign in with, or connect, Apple Calendar (iCloud) using an app-specific password
 - Imports timed entries from Notion databases you share with it
 - Imports `.ics` calendar files exported from Outlook, Apple Calendar, etc. (several at once)
 - Allows users to manually add busy time blocks

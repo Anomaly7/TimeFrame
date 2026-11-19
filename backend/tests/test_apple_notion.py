@@ -203,3 +203,32 @@ def test_notion_available_tracks_server_config(client, monkeypatch):
     monkeypatch.setenv("NOTION_CLIENT_SECRET", "secret")
     monkeypatch.setenv("NOTION_REDIRECT_URI", "https://api.example/notion/callback")
     assert client.get("/notion/available").json() == {"available": True}
+
+
+def test_apple_sign_in_from_the_sign_in_page(client, monkeypatch):
+    import app.apple_calendar as ac
+    monkeypatch.setattr(ac, "_request", _fake_icloud([]))
+
+    # New person: signing in with Apple creates the account (the Apple ID email) and imports their calendars.
+    r = client.post("/apple/login", json={"apple_id": "New.Person@iCloud.com", "app_password": "abcd-efgh-ijkl-mnop"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["email"] == "new.person@icloud.com" and out["imported"] == 2 and out["token"]
+    h = {"Authorization": "Bearer " + out["token"]}
+    assert client.get("/apple/status", headers=h).json() == {"connected": True}
+    dump = "\n".join(str(row) for row in client.fake.db.iterdump())
+    assert "abcd-efgh" not in dump and "abcdefgh" not in dump  # the password is never stored
+
+    # Someone already made an unverified password account with that email: don't hand it over.
+    signup(client, "taken@icloud.com")
+    r = client.post("/apple/login", json={"apple_id": "taken@icloud.com", "app_password": "abcd-efgh-ijkl-mnop"})
+    assert r.status_code == 409
+
+    # Apple says no: no account, no session.
+    def reject(*a):
+        raise ac.AppleAuthError()
+    monkeypatch.setattr(ac, "_request", reject)
+    r = client.post("/apple/login", json={"apple_id": "nobody@icloud.com", "app_password": "wrong"})
+    assert r.status_code == 401
+    assert client.fake.execute("SELECT COUNT(*) FROM users WHERE id = 'nobody@icloud.com'").fetchone()[0] == 0
+    assert client.post("/apple/login", json={"apple_id": "not-an-email", "app_password": "x"}).status_code == 400

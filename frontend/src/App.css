@@ -1082,7 +1082,7 @@
 .icon-btn:hover, .today-btn:hover { background: var(--surface-muted); }
 .icon-btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
-.dash-main > .card { border-radius: 14px; padding: 1rem 1.1rem; margin-bottom: 1rem; }
+.dash-main > .card { border-radius: 14px; padding: 1.4rem 1.1rem 1rem; margin-bottom: 1rem; }
 .dash-main > .card:not(.settings-panel) > .card-title { display: none; }
 
 /* Sidebar: quieter, compact cards */

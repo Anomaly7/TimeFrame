@@ -8,7 +8,7 @@ A toolbar popup that shows the best times you (or one of your groups) are free t
 
 ## Sign-in
 
-There is no separate login. Sign in on timeframecalender.com once and the extension picks it up
+Sign in inside the popup (Continue with Google, or email + password), or sign in on timeframecalender.com and the extension picks it up
 (`content.js` runs only on that site and reads only the sign-in token, your name and your settings).
 It renews its own sign-in the same way the site does ("Keep me signed in": 90 days, renewed while used).
 Signing out on the site signs the extension out too; **Sign out** in the popup signs out only the extension.

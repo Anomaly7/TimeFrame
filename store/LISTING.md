@@ -1,6 +1,6 @@
 # Chrome Web Store listing: TimeFrame (copy-paste sheet)
 
-Upload: `store/timeframe-extension-0.1.2.zip` (Developer Dashboard → New item).
+Upload: `store/timeframe-extension-0.1.3.zip` (Developer Dashboard → New item).
 
 ## Store listing tab
 

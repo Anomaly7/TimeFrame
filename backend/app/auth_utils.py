@@ -83,6 +83,12 @@ _PRIVATE_HOST = re.compile(
 )
 
 
+def _extension_ids() -> set[str]:
+    ids = {"mekfgkblklbedejkkcocmpgpgdmlgfde", "aejjnpicjnicnoekejbgekioiifjanck"}
+    ids.update(x.strip() for x in os.getenv("EXTENSION_IDS", "").split(",") if x.strip())
+    return ids
+
+
 def safe_app_redirect(url: str | None) -> str | None:
     """Only the TimeFrame app itself (timeframe://...) or Expo Go on a phone on
     the same home network (exp://<private address>/...) may receive a session
@@ -92,6 +98,11 @@ def safe_app_redirect(url: str | None) -> str | None:
     if not url or len(url) > 300 or "#" in url:
         return None
     if url.startswith("timeframe://"):
+        return url
+    # The TimeFrame Chrome extension (chrome.identity.launchWebAuthFlow). Only our own extension IDs:
+    # the Web Store copy, Sam's unpacked dev copy, plus any listed in EXTENSION_IDS.
+    m = re.match(r"^https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9_/-]*$", url)
+    if m and m.group(1) in _extension_ids():
         return url
     m = re.match(r"^exp://([^/]+)(/.*)?$", url)
     if m and _PRIVATE_HOST.match(m.group(1)):

@@ -66,3 +66,15 @@ def test_only_the_app_or_a_home_network_expo_go_can_receive_a_sign_in(monkeypatc
     plain, _ = create_oauth_state()
     assert oauth_state_app_redirect(plain) is None
     assert oauth_state_app_redirect("forged.token.here") is None
+
+
+def test_only_our_chrome_extensions_can_receive_a_sign_in(monkeypatch):
+    monkeypatch.setenv("SESSION_SECRET", "z" * 40)
+    from app.auth_utils import safe_app_redirect
+    store = "https://mekfgkblklbedejkkcocmpgpgdmlgfde.chromiumapp.org/auth"
+    assert safe_app_redirect(store) == store
+    assert safe_app_redirect("https://aejjnpicjnicnoekejbgekioiifjanck.chromiumapp.org/")
+    assert safe_app_redirect("https://abcdefghijklmnopabcdefghijklmnop.chromiumapp.org/auth") is None  # someone else's extension
+    assert safe_app_redirect("https://mekfgkblklbedejkkcocmpgpgdmlgfde.chromiumapp.org.evil.com/") is None
+    monkeypatch.setenv("EXTENSION_IDS", "abcdefghijklmnopabcdefghijklmnop")
+    assert safe_app_redirect("https://abcdefghijklmnopabcdefghijklmnop.chromiumapp.org/auth")

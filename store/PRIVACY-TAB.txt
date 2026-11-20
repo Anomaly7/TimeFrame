@@ -9,6 +9,10 @@ STORAGE JUSTIFICATION:
 Keeps the user's TimeFrame sign-in token, display settings and selected group on the device so the popup stays signed in between uses.
 
 
+IDENTITY JUSTIFICATION (new box, appears after uploading v0.1.3):
+Lets the user sign in to their TimeFrame account with Google from the popup (chrome.identity.launchWebAuthFlow opens TimeFrame's own Google sign-in and returns the TimeFrame session to the extension). No Google data is read by the extension itself.
+
+
 HOST PERMISSION JUSTIFICATION:
 calender-app-mm4q.onrender.com is the TimeFrame API, which the popup calls to load the user's free times, groups and name. The content script on timeframecalender.com (TimeFrame's own website) reads only the TimeFrame sign-in token and display settings so the extension signs in when the user signs in on the site. It runs on no other site.
 

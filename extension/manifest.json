@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TimeFrame — Find Free Time",
   "short_name": "TimeFrame",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "See the best times your group is free this week, right from your toolbar.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -18,7 +18,8 @@
       "32": "icons/icon-32.png"
     }
   },
-  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "permissions": ["storage", "identity"],
   "host_permissions": ["https://calender-app-mm4q.onrender.com/*"],
   "content_scripts": [
     {

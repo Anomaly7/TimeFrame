@@ -68,3 +68,23 @@ select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border
 .pick-when { font-weight: 600; font-size: 13px; }
 
 .logo img { box-shadow: 0 0 0 1px var(--border); }
+
+/* Sign in inside the popup (2026-11-20) */
+#signed-out h1 { margin-top: 2px; }
+.provider { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px; margin-top: 12px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600; border-radius: 9px; }
+.provider:hover { background: var(--muted-bg); }
+.provider svg { width: 18px; height: 18px; }
+.provider:disabled { opacity: .6; cursor: default; }
+.divider { display: flex; align-items: center; gap: 10px; margin: 12px 0; color: var(--muted); font-size: 12px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+#email-form { display: flex; flex-direction: column; gap: 8px; }
+#email-form input[type=email], #email-form input[type=password] { padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font: inherit; }
+#email-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.remember { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.remember input { accent-color: var(--accent); margin: 0; }
+#email-form .primary { margin-top: 2px; }
+.error { color: #d1373d; margin: 8px 0 0; }
+.error:empty { display: none; }
+.more { margin: 12px 0 0; }

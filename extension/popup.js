@@ -46,6 +46,7 @@ async function renew(saved) {
 }
 
 function showSignedOut() {
+  state.token = null;
   $("signed-in").hidden = true;
   $("signed-out").hidden = false;
 }
@@ -243,8 +244,57 @@ async function init() {
     loadSlots();
   };
 
+  // Sign in right here (2026-11-20): Google through the background worker, or email + password.
+  $("google").onclick = () => {
+    $("signin-error").textContent = "";
+    $("google").disabled = true;
+    // The popup may close when Google's window opens; the background worker finishes and saves the sign-in.
+    chrome.runtime.sendMessage({ type: "google-signin", remember: $("remember").checked }, (r) => {
+      $("google").disabled = false;
+      if (chrome.runtime.lastError) return;
+      if (r?.ok) start(); else $("signin-error").textContent = r?.error || "Google sign-in didn't finish.";
+    });
+  };
+  $("email-form").onsubmit = async (e) => {
+    e.preventDefault();
+    $("signin-error").textContent = "";
+    $("email-submit").disabled = true;
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: $("email").value.trim(), password: $("password").value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Couldn't sign in.");
+      $("password").value = "";
+      await store.set({ token: data.token, userId: data.email || "", renewedAt: 0, remember: $("remember").checked });
+      start();
+    } catch (err) {
+      $("signin-error").textContent = err.message === "Failed to fetch" ? "Couldn't reach TimeFrame. Try again in a moment." : err.message;
+    } finally {
+      $("email-submit").disabled = false;
+    }
+  };
+  // Signed in from the background worker (or the website) while the popup is open.
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.token?.newValue && !state.token) start();
+  });
+
+  await start();
+}
+
+// One load at a time: sign-in, storage changes and the popup opening can all ask for it.
+let starting = null;
+function start() {
+  if (!starting) starting = doStart().finally(() => { starting = null; });
+  return starting;
+}
+
+async function doStart() {
   const saved = await store.get(["token", "renewedAt", "remember", "groupId", "settings", "userId"]);
   if (!saved.token) return showSignedOut();
+  $("signed-out").hidden = true;
   state.token = saved.token;
   state.groupId = saved.groupId || "";
   state.userId = saved.userId || "";

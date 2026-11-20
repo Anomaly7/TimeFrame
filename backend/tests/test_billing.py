@@ -87,3 +87,20 @@ def test_checkout_without_stripe_keys_says_so(client, monkeypatch):
     make_free(client, "n@example.com")
     r = client.post("/billing/checkout", json={}, headers=h)
     assert r.status_code == 503 and "set up" in r.json()["detail"]
+
+
+def test_tax_is_added_on_top_when_switched_on(client, monkeypatch):
+    from app import billing
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_x")
+    sent = []
+    monkeypatch.setattr(billing, "stripe", lambda m, p, d=None: sent.append(d) or {"url": "https://checkout.stripe.com/x"})
+    h = signup(client, "tax@example.com")
+    make_free(client, "tax@example.com")
+    client.post("/billing/checkout", json={"interval": "month"}, headers=h)
+    item = sent[-1]["line_items"][0]["price_data"]
+    assert item["tax_behavior"] == "exclusive" and item["unit_amount"] == 399  # price never lowered
+    assert "automatic_tax" not in sent[-1]  # off until registered
+    monkeypatch.setattr(billing, "COLLECT_TAX", True)
+    client.post("/billing/checkout", json={"interval": "month"}, headers=h)
+    assert sent[-1]["automatic_tax"] == {"enabled": True}
+    assert sent[-1]["line_items"][0]["price_data"]["unit_amount"] == 399

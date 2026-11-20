@@ -107,7 +107,7 @@ export default function UpgradeModal({ status, authHeaders, onClose, onUpgraded,
             <p className="upgrade-fine">
               {status?.checkout_available === false
                 ? "Card payments are being set up. A coupon still works."
-                : `${trialDays > 0 ? `Free for ${trialDays} days, then ` : ""}${period === "year" ? prices.year + " a year" : prices.month + " a month"} (${status?.currency || "CAD"}). Cancel anytime. Secure checkout by Stripe.`}
+                : `${trialDays > 0 ? `Free for ${trialDays} days, then ` : ""}${period === "year" ? prices.year + " a year" : prices.month + " a month"} (${status?.currency || "CAD"})${status?.tax_added ? " + tax" : ""}. Cancel anytime. Secure checkout by Stripe.`}
             </p>
 
             <div className="coupon">

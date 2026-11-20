@@ -37,6 +37,10 @@ TRIAL_DAYS = int(os.getenv("PRO_TRIAL_DAYS", "7"))
 # Stripe tax category. Required when the Stripe account uses Managed Payments (Stripe handles sales tax):
 # txcd_10103000 = Software as a Service (SaaS), personal use.
 TAX_CODE = os.getenv("PRO_TAX_CODE", "txcd_10103000").strip()
+# Sales tax goes ON TOP of the advertised price, paid by the customer (Sam, 2026-11-20: he keeps the full $3.99 / $29).
+# Stripe Tax works out the right GST/HST/PST from the customer's address. Only switch on (PRO_COLLECT_TAX=1 in Render)
+# once registered for GST/HST and Stripe Tax is set up (Stripe > Settings > Tax), since unregistered sellers may not charge it.
+COLLECT_TAX = os.getenv("PRO_COLLECT_TAX", "").strip().lower() in ("1", "true", "yes", "on")
 GRACE_SECONDS = 24 * 3600  # don't drop someone the minute a renewal is due
 ACTIVE = {"active", "trialing", "past_due"}
 
@@ -165,6 +169,7 @@ def billing_status(user_id: str = Depends(get_current_user)):
         "currency": CURRENCY.upper(),
         "prices": {k: _money(v) for k, v in PRICES.items()},
         "trial_days": TRIAL_DAYS,
+        "tax_added": COLLECT_TAX,
     }
 
 
@@ -198,15 +203,19 @@ def start_checkout(body: dict = Body(default={}), user_id: str = Depends(get_cur
                 "currency": CURRENCY,
                 "unit_amount": PRICES[interval],
                 "recurring": {"interval": interval},
+                "tax_behavior": "exclusive",  # tax is added on top, never taken out of the price
                 "product_data": {"name": "TimeFrame Pro", **({"tax_code": TAX_CODE} if TAX_CODE else {})},
             },
         }],
         "allow_promotion_codes": True,
+        **({"automatic_tax": {"enabled": True}, "billing_address_collection": "required"} if COLLECT_TAX else {}),
         "success_url": f"{FRONTEND_URL}/?billing=success&session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{FRONTEND_URL}/?billing=cancelled",
     }
     if row and row[2]:
         params["customer"] = row[2]
+        if COLLECT_TAX:  # save the address Checkout collects on the existing customer, for the tax calculation
+            params["customer_update"] = {"address": "auto"}
     else:
         email = (row[5] if row else None) or (user_id if "@" in user_id else None)
         if email:

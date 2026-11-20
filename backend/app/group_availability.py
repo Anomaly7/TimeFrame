@@ -334,6 +334,11 @@ def join_group(
     ).fetchone()
     if banned:
         raise HTTPException(status_code=403, detail="The group's admin removed you from this group.")
+    # Creating a new group is a Pro feature; joining someone's existing group stays free.
+    exists = conn.execute("SELECT 1 FROM groups WHERE id = ?", (group_id,)).fetchone()
+    if not exists:
+        from app.billing import require_pro
+        require_pro(user_id, "Creating a group")
     # Whoever creates the link is its admin.
     conn.execute(
         "INSERT INTO groups (id, name, owner) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",

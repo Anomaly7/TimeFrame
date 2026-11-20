@@ -19,7 +19,7 @@ function linkFor(groupId) {
 // The creator of a link is its admin (👑): only they can rename it, set the
 // group's scheduling settings (in Settings) and remove people. groups lives
 // in App so the active group's settings can drive the calendar.
-export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refreshKey, groups, setGroups, personalSettings }) {
+export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refreshKey, groups, setGroups, personalSettings, isPro = true, onNeedPro }) {
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState(null); // group id being renamed
   const [renameDraft, setRenameDraft] = useState("");
@@ -66,6 +66,8 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
 
   async function createGroup(e) {
     e.preventDefault();
+    // Creating groups is a Pro feature (the server checks too); joining one stays free.
+    if (!isPro && onNeedPro) return onNeedPro();
     const id = generateShortGroupId();
     try {
       // Join first: the server only shows a group's calendars to its members.
@@ -81,7 +83,8 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
       onSwitch(id);
       copy(id);
     } catch (err) {
-      setError(err.message);
+      if (/Pro/.test(err.message) && onNeedPro) onNeedPro();
+      else setError(err.message);
     }
   }
 
@@ -154,7 +157,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
           maxLength={60}
           onChange={(e) => setNewName(e.target.value)}
         />
-        <button className="btn btn-primary" type="submit">Create group link</button>
+        <button className="btn btn-primary" type="submit">Create group link{!isPro && <span className="pro-tag">PRO</span>}</button>
       </form>
 
       {error && <p className="error-text">{error}</p>}

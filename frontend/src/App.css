@@ -1148,3 +1148,41 @@
 
 /* New TF logo is a white tile: outline it on light backgrounds (2026-11-20). */
 .dash-logo img, .auth-logo-mobile img { box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(15, 23, 42, 0.08); }
+
+/* TimeFrame Pro (2026-11-20) */
+.pro-badge, .pro-tag { display: inline-block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; padding: 0.12rem 0.4rem;
+  border-radius: 999px; color: #fff; background: linear-gradient(135deg, #5b5ff0, #7c3aed); line-height: 1.2; }
+.pro-tag { margin-left: 0.45rem; background: rgba(255, 255, 255, 0.25); }
+.dash-menu-plan { padding: 0.5rem 0.7rem; font-size: 0.8rem; font-weight: 600; color: var(--accent); }
+.dash-menu .upgrade-item { color: var(--accent); font-weight: 700; }
+.billing-note { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 1480px; margin: 1rem auto 0;
+  padding: 0.7rem 1rem; border-radius: 10px; background: var(--accent-soft); color: var(--text); font-size: 0.9rem; width: calc(100% - 3rem); }
+.billing-note .link-btn { font-size: 1.2rem; line-height: 1; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem;
+  background: rgba(15, 18, 40, 0.45); backdrop-filter: blur(3px); }
+.modal { position: relative; width: 100%; max-width: 440px; max-height: calc(100vh - 2rem); overflow-y: auto; background: var(--surface);
+  border-radius: 18px; padding: 1.6rem; box-shadow: 0 30px 80px -20px rgba(15, 10, 60, 0.5); }
+.modal-close { position: absolute; top: 0.8rem; right: 0.9rem; border: none; background: none; font-size: 1.5rem; line-height: 1;
+  color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.4rem; }
+.upgrade-head { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.1rem; }
+.upgrade-head img { width: 48px; height: 48px; border-radius: 12px; box-shadow: 0 0 0 1px var(--border); }
+.upgrade-head h2 { margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; }
+.upgrade-head p { margin: 0.15rem 0 0; color: var(--text-muted); font-size: 0.9rem; }
+.upgrade-features { list-style: none; padding: 0; margin: 0 0 1.1rem; display: grid; gap: 0.45rem; font-size: 0.92rem; }
+.upgrade-features li::before { content: "✓"; color: var(--success); font-weight: 800; margin-right: 0.55rem; }
+.plan-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem; }
+.plan-pick button { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.8rem 0.9rem; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.plan-pick button.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-translucent); }
+.plan-name { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: flex; gap: 0.4rem; align-items: center; }
+.plan-name em { font-style: normal; font-size: 0.68rem; font-weight: 800; color: var(--success); background: var(--success-soft); padding: 0.05rem 0.35rem; border-radius: 999px; }
+.plan-price { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; }
+.plan-price small { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-left: 0.15rem; }
+.upgrade-cta { width: 100%; padding: 0.8rem; font-size: 1rem; border-radius: 11px; }
+.upgrade-fine { text-align: center; font-size: 0.78rem; color: var(--text-muted); margin: 0.6rem 0 0; }
+.coupon { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); text-align: center; }
+.coupon form { display: flex; gap: 0.5rem; }
+.coupon input { flex: 1; min-width: 0; padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: 8px; font: inherit;
+  background: var(--surface); color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
+.upgrade-done { text-align: center; }
+.upgrade-done p { font-size: 1rem; margin: 0.5rem 0 1rem; }

@@ -88,3 +88,10 @@ select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border
 .error { color: #d1373d; margin: 8px 0 0; }
 .error:empty { display: none; }
 .more { margin: 12px 0 0; }
+
+/* Free accounts (2026-11-20) */
+#need-pro { text-align: center; padding-top: 22px; }
+#need-pro h1 { font-size: 17px; margin: 10px 0 6px; }
+#need-pro .foot { text-align: left; }
+.pro-pill { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #fff; padding: 3px 8px; border-radius: 999px;
+  background: linear-gradient(135deg, #5b5ff0, #7c3aed); }

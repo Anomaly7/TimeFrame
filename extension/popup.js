@@ -47,6 +47,7 @@ async function renew(saved) {
 
 function showSignedOut() {
   state.token = null;
+  $("need-pro").hidden = true;
   $("signed-in").hidden = true;
   $("signed-out").hidden = false;
 }
@@ -226,6 +227,8 @@ function fillGroups() {
 async function init() {
   $("open").onclick = () => openSite("/");
   $("signin").onclick = () => openSite("/");
+  $("go-pro").onclick = () => openSite("/?upgrade=1");
+  $("signout-free").onclick = () => $("signout").onclick();
   $("signout").onclick = async () => {
     await store.remove(["token", "renewedAt", "userId"]);
     showSignedOut();
@@ -303,7 +306,15 @@ async function doStart() {
 
   await renew(saved);
   try {
-    const [me, groups] = await Promise.all([api("/auth/me"), api("/groups")]);
+    const [me, groups, plan] = await Promise.all([api("/auth/me"), api("/groups"), api("/billing/status").catch(() => ({ pro: true }))]);
+    // Free accounts see the Pro screen instead of the calendar (2026-11-20).
+    if (plan && plan.pro === false) {
+      $("signed-in").hidden = true;
+      $("need-pro").hidden = false;
+      $("who-free").textContent = `Signed in as ${me.name || me.email}`;
+      return;
+    }
+    $("need-pro").hidden = true;
     $("who").textContent = `Signed in as ${me.name || me.email}`;
     state.userId = me.email || state.userId;
     state.groups = groups.groups || [];

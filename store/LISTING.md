@@ -1,6 +1,6 @@
 # Chrome Web Store listing: TimeFrame (copy-paste sheet)
 
-Upload: `store/timeframe-extension-0.1.3.zip` (Developer Dashboard → New item).
+Upload: `store/timeframe-extension-0.1.4.zip` (Developer Dashboard → New item).
 
 ## Store listing tab
 
@@ -20,7 +20,7 @@ TimeFrame finds a time that works for everyone. This extension puts your group's
 
 How it works: sign in at timeframecalender.com (Google, Apple Calendar, Notion or email) and the extension signs in with you. TimeFrame only ever looks at when you're busy, never what your events are.
 
-Free. No ads. No tracking.
+Free to install. The toolbar calendar is part of TimeFrame Pro (7-day free trial, or free with a coupon). No ads. No tracking.
 
 **Category:** Productivity (Workflow & Planning)
 **Language:** English

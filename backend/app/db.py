@@ -105,6 +105,16 @@ if "email_verified" not in existing_user_columns:
 # before the @.
 if "display_name" not in existing_user_columns:
     conn.execute("ALTER TABLE users ADD COLUMN display_name TEXT")
+# TimeFrame Pro (2026-11-20, see billing.py). plan = 'pro' or NULL (free); pro_source = early | coupon | stripe | manual.
+if "plan" not in existing_user_columns:
+    conn.execute("ALTER TABLE users ADD COLUMN plan TEXT")
+    conn.execute("ALTER TABLE users ADD COLUMN pro_source TEXT")
+    conn.execute("ALTER TABLE users ADD COLUMN stripe_customer TEXT")
+    conn.execute("ALTER TABLE users ADD COLUMN stripe_sub TEXT")
+    conn.execute("ALTER TABLE users ADD COLUMN pro_until BIGINT")
+    # Everyone who signed up before Pro existed keeps it, free (Sam's decision). Runs once, at launch.
+    conn.execute("UPDATE users SET plan = 'pro', pro_source = 'early'")
+    conn.commit()
 
 conn.execute("""
 CREATE TABLE IF NOT EXISTS busy_times (

@@ -13,6 +13,7 @@ import MonthView from "./components/MonthView";
 import SettingsPanel from "./components/SettingsPanel";
 import ImportIcs from "./components/ImportIcs";
 import GroupsPanel from "./components/GroupsPanel";
+import UpgradeModal from "./components/UpgradeModal";
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -126,6 +127,10 @@ export default function App() {
   const [hasCustomName, setHasCustomName] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // TimeFrame Pro (2026-11-20): billing status, the upgrade window and a one-line notice after checkout.
+  const [billing, setBilling] = useState(null);
+  const [upgrade, setUpgrade] = useState(null); // null = closed, otherwise the reason shown at the top
+  const [billingNote, setBillingNote] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [nameError, setNameError] = useState("");
 
@@ -388,6 +393,61 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function refreshBilling() {
+    try {
+      const res = await fetch(`${API_URL}/billing/status`, { headers: authHeaders() });
+      if (res.ok) setBilling(await res.json());
+    } catch { /* keep the last known status */ }
+  }
+
+  useEffect(() => {
+    if (!email) return;
+    const q = new URLSearchParams(window.location.search);
+    const result = q.get("billing"), sessionId = q.get("session_id");
+    if (q.get("upgrade")) setUpgrade("Unlock groups and the Chrome extension.");
+    if (result || q.get("upgrade")) {
+      ["billing", "session_id", "upgrade"].forEach((k) => q.delete(k));
+      const rest = q.toString();
+      window.history.replaceState(null, "", window.location.pathname + (rest ? "?" + rest : ""));
+    }
+    (async () => {
+      if (result === "success" && sessionId) {
+        try {
+          const res = await fetch(`${API_URL}/billing/confirm`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          setBillingNote(res.ok
+            ? (data.trial ? "Welcome to TimeFrame Pro! Your free trial has started." : "Welcome to TimeFrame Pro!")
+            : data.detail || "We couldn't confirm the payment. If you were charged, contact us.");
+        } catch {
+          setBillingNote("We couldn't confirm the payment yet. Refresh in a moment.");
+        }
+      } else if (result === "cancelled") {
+        setBillingNote("Checkout cancelled. You haven't been charged.");
+      }
+      refreshBilling();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+
+  async function openBillingPortal() {
+    try {
+      const res = await fetch(`${API_URL}/billing/portal`, { method: "POST", headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Couldn't open billing.");
+      window.location.href = data.url;
+    } catch (err) {
+      setBillingNote(err.message);
+    }
+  }
+
+  const isPro = !!billing?.pro;
+  const proLabel = !billing?.pro ? "" : billing.source === "early" ? "Early supporter"
+    : billing.source === "coupon" ? "Coupon" : billing.trial ? "Free trial" : "";
+
   // Busy/free times are scoped server-side, so cached results from a
   // previous visit (or an earlier day) are stale as soon as the page
   // loads. Re-fetch automatically instead of waiting for the user to
@@ -636,6 +696,7 @@ export default function App() {
             <button type="button" className="dash-user-btn" title={email} onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen}>
               <span className="dash-avatar">{(displayName || "?").trim().charAt(0).toUpperCase()}</span>
               <span className="dash-user-name">{displayName}</span>
+              {isPro && <span className="pro-badge">PRO</span>}
               <span className="dash-caret" aria-hidden="true">▾</span>
             </button>
           )}
@@ -650,6 +711,16 @@ export default function App() {
                 <button role="menuitem" onClick={() => { setMenuOpen(false); setNameDraft(hasCustomName ? myName : ""); setEditingName(true); }}>
                   Edit display name
                 </button>
+                {billing && (isPro ? (
+                  <div className="dash-menu-plan">TimeFrame Pro{proLabel ? ` · ${proLabel}` : ""}</div>
+                ) : (
+                  <button role="menuitem" className="upgrade-item" onClick={() => { setMenuOpen(false); setUpgrade(null); setUpgrade(""); }}>
+                    ✦ Upgrade to Pro
+                  </button>
+                ))}
+                {billing?.can_manage && (
+                  <button role="menuitem" onClick={() => { setMenuOpen(false); openBillingPortal(); }}>Manage billing</button>
+                )}
                 <button role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
                 <button role="menuitem" onClick={() => { setMenuOpen(false); clearAll(); }}>Clear my schedule</button>
                 <hr />
@@ -659,6 +730,22 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {billingNote && (
+        <div className="billing-note" role="status">
+          <span>{billingNote}</span>
+          <button className="link-btn" onClick={() => setBillingNote("")} aria-label="Dismiss">×</button>
+        </div>
+      )}
+      {upgrade !== null && (
+        <UpgradeModal
+          status={billing}
+          authHeaders={authHeaders}
+          reason={upgrade || undefined}
+          onClose={() => setUpgrade(null)}
+          onUpgraded={refreshBilling}
+        />
+      )}
 
       <div className="dash-body">
         <main className="dash-main">
@@ -750,6 +837,8 @@ export default function App() {
               groups={groups}
               setGroups={setGroups}
               personalSettings={settings}
+              isPro={billing ? isPro : true}
+              onNeedPro={() => setUpgrade("Creating groups is part of TimeFrame Pro.")}
             />
           </section>
 

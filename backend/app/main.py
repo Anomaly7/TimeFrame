@@ -8,6 +8,7 @@ from app.calendar_import import router as import_router
 from app.email_auth import router as email_auth_router
 from app.apple_calendar import router as apple_router
 from app.notion_auth import router as notion_router
+from app.billing import router as billing_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
 from app.db import conn, current_request
@@ -51,6 +52,7 @@ app.include_router(import_router)
 app.include_router(email_auth_router)
 app.include_router(apple_router)
 app.include_router(notion_router)
+app.include_router(billing_router)
 
 @app.get("/")
 def root():

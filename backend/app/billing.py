@@ -6,7 +6,7 @@ Pro: creating groups and the Chrome extension.
 Ways to get Pro:
 - "early": every account that existed when Pro launched keeps it, free, for good (set once in db.py).
 - "coupon": the one coupon code in TIMEFRAME_COUPON (Render > Environment) gives Pro for free, no card.
-- "stripe": a Stripe subscription ($3.99/month or $29/year CAD by default, 7-day free trial).
+- "stripe": a Stripe subscription ($4.47/month or $29/year CAD by default, 7-day free trial).
 
 Stripe is called over plain HTTPS (no SDK). There is no webhook to set up: a subscription's paid-through
 date is saved, and once it passes, the next status check asks Stripe whether it's still active.
@@ -29,15 +29,16 @@ router = APIRouter()
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.timeframecalender.com").rstrip("/")
 CURRENCY = os.getenv("PRO_CURRENCY", "cad").lower()
+# $4.47/month (Sam, 2026-11-20): after Stripe's Canadian fees (2.9% + $0.30 card, 0.7% Billing) he keeps about $4.00.
 PRICES = {  # cents
-    "month": int(os.getenv("PRO_PRICE_MONTH_CENTS", "399")),
+    "month": int(os.getenv("PRO_PRICE_MONTH_CENTS", "447")),
     "year": int(os.getenv("PRO_PRICE_YEAR_CENTS", "2900")),
 }
 TRIAL_DAYS = int(os.getenv("PRO_TRIAL_DAYS", "7"))
 # Stripe tax category. Required when the Stripe account uses Managed Payments (Stripe handles sales tax):
 # txcd_10103000 = Software as a Service (SaaS), personal use.
 TAX_CODE = os.getenv("PRO_TAX_CODE", "txcd_10103000").strip()
-# Sales tax goes ON TOP of the advertised price, paid by the customer (Sam, 2026-11-20: he keeps the full $3.99 / $29).
+# Sales tax goes ON TOP of the advertised price, paid by the customer (Sam, 2026-11-20: he keeps the full price).
 # Stripe Tax works out the right GST/HST/PST from the customer's address. Only switch on (PRO_COLLECT_TAX=1 in Render)
 # once registered for GST/HST and Stripe Tax is set up (Stripe > Settings > Tax), since unregistered sellers may not charge it.
 COLLECT_TAX = os.getenv("PRO_COLLECT_TAX", "").strip().lower() in ("1", "true", "yes", "on")

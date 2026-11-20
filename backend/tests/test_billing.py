@@ -17,7 +17,7 @@ def test_early_supporters_keep_pro_and_new_free_users_cannot_create_groups(clien
     free = signup(client, "free@example.com")
     make_free(client, "free@example.com")
     st = client.get("/billing/status", headers=free).json()
-    assert st["pro"] is False and st["prices"] == {"month": "$3.99", "year": "$29"}
+    assert st["pro"] is False and st["prices"] == {"month": "$4.47", "year": "$29"}
     r = client.post("/groups/join?group_id=Wxyz2345", headers=free)
     assert r.status_code == 402 and "Pro" in r.json()["detail"]
     # ...but joining someone else's group is free.
@@ -98,9 +98,9 @@ def test_tax_is_added_on_top_when_switched_on(client, monkeypatch):
     make_free(client, "tax@example.com")
     client.post("/billing/checkout", json={"interval": "month"}, headers=h)
     item = sent[-1]["line_items"][0]["price_data"]
-    assert item["tax_behavior"] == "exclusive" and item["unit_amount"] == 399  # price never lowered
+    assert item["tax_behavior"] == "exclusive" and item["unit_amount"] == 447  # price never lowered
     assert "automatic_tax" not in sent[-1]  # off until registered
     monkeypatch.setattr(billing, "COLLECT_TAX", True)
     client.post("/billing/checkout", json={"interval": "month"}, headers=h)
     assert sent[-1]["automatic_tax"] == {"enabled": True}
-    assert sent[-1]["line_items"][0]["price_data"]["unit_amount"] == 399
+    assert sent[-1]["line_items"][0]["price_data"]["unit_amount"] == 447

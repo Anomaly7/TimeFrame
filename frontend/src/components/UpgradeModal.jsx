@@ -19,9 +19,9 @@ export default function UpgradeModal({ status, authHeaders, onClose, onUpgraded,
   const [showCoupon, setShowCoupon] = useState(false);
   const [done, setDone] = useState("");
 
-  const prices = status?.prices || { month: "$3.99", year: "$29" };
+  const prices = status?.prices || { month: "$4.47", year: "$29" };
   const trialDays = status?.trial_days ?? 7;
-  const monthly = parseFloat(String(prices.month).replace(/[^0-9.]/g, "")) || 3.99;
+  const monthly = parseFloat(String(prices.month).replace(/[^0-9.]/g, "")) || 4.47;
   const yearly = parseFloat(String(prices.year).replace(/[^0-9.]/g, "")) || 29;
   const save = Math.round((1 - yearly / (monthly * 12)) * 100);
 

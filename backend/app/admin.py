@@ -93,6 +93,23 @@ def enabled() -> bool:
     return len(_password()) >= MIN_PASSWORD and _totp_secret() is not None
 
 
+def why_disabled() -> str | None:
+    """Why the admin page is off, for the server log. Never includes the values themselves."""
+    problems = []
+    pw = _password()
+    if not pw:
+        problems.append("ADMIN_PASSWORD is not set")
+    elif len(pw) < MIN_PASSWORD:
+        problems.append(f"ADMIN_PASSWORD is shorter than {MIN_PASSWORD} characters")
+    raw = os.getenv("ADMIN_TOTP_SECRET", "").strip()
+    if not raw:
+        problems.append("ADMIN_TOTP_SECRET is not set")
+    elif _totp_secret() is None:
+        problems.append("ADMIN_TOTP_SECRET is not a valid authenticator key (use the key line admin_setup.py prints: "
+                        "letters A-Z and digits 2-7, at least 16 of them)")
+    return "; ".join(problems) or None
+
+
 def _not_found():
     raise HTTPException(status_code=404, detail="Not Found")
 
@@ -394,3 +411,8 @@ def change_pro(body: dict = Body(...), ip: str = Depends(require_admin)):
 def audit_log(ip: str = Depends(require_admin)):
     rows = conn.execute("SELECT at, ip, action, detail FROM admin_audit ORDER BY at DESC LIMIT 40").fetchall()
     return _json({"events": [{"at": int(a), "ip": b, "action": c, "detail": d or ""} for a, b, c, d in rows]})
+
+
+# Say in the server log (Render > Logs) whether the admin page is on, and if not, why. Values are never logged.
+_why = why_disabled()
+print("Admin page: ON" if _why is None else f"Admin page: OFF ({_why})", flush=True)

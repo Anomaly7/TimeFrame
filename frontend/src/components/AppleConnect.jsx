@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { API_URL } from "../config";
+import { getToken } from "../session";
 
 // Apple has no "Sign in to read my calendar" button for other apps: iCloud
 // calendars are read with your Apple ID email plus an app-specific password.
@@ -15,7 +16,7 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
   const [error, setError] = useState("");
 
   function headers() {
-    return { Authorization: `Bearer ${localStorage.getItem("authToken")}`, "Content-Type": "application/json" };
+    return { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" };
   }
 
   async function connect(e) {

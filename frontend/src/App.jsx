@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { API_URL } from "./config";
+import { getToken, saveToken, clearToken, renewToken } from "./session";
 
 import AvailabilityForm from "./components/AvailabilityForm";
 import GoogleConnect from "./components/GoogleConnect";
@@ -242,7 +243,7 @@ export default function App() {
   // trusts a plain user_id from a query param for that (anyone could type
   // in someone else's email and read/overwrite their schedule otherwise).
   function authHeaders() {
-    const token = tokenFromUrl || localStorage.getItem("authToken");
+    const token = tokenFromUrl || getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
@@ -254,7 +255,7 @@ export default function App() {
 
   useEffect(() => {
     if (tokenFromUrl) {
-      localStorage.setItem("authToken", tokenFromUrl);
+      saveToken(tokenFromUrl);
     }
     // Saved - now take the token out of the address bar so it isn't left in
     // history, bookmarks or a copied link.
@@ -281,7 +282,7 @@ export default function App() {
     // localStorage, not the URL. Check both so the join actually happens
     // regardless of which one arrives first.
     const joiningGroupId = groupIdFromLink || localStorage.getItem("groupId");
-    const token = tokenFromUrl || localStorage.getItem("authToken");
+    const token = tokenFromUrl || getToken();
 
 
     if (!token || !joiningGroupId) return;
@@ -360,7 +361,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    const token = tokenFromUrl || localStorage.getItem("authToken");
+    const token = tokenFromUrl || getToken();
     if (!token) {
       setEmail(null);
       return;
@@ -375,11 +376,12 @@ export default function App() {
         setMyName(data.name || "");
         setHasCustomName(!!data.custom_name);
         setEmail(data.email);
+        renewToken(); // keeps an active user signed in (see session.js)
       })
       .catch(() => {
         // An expired/invalid token shouldn't leave the app stuck showing
         // stale data behind the gate - drop it and fall back to signed out.
-        localStorage.removeItem("authToken");
+        clearToken();
         localStorage.removeItem("userId");
         setEmail(null);
       });
@@ -452,7 +454,7 @@ export default function App() {
   // leaves them alone - so opening the app on a device with nothing stored
   // locally can never wipe them.
   async function fetchAvailability(extraBusy = [], { save = false } = {}) {
-    const token = tokenFromUrl || localStorage.getItem("authToken");
+    const token = tokenFromUrl || getToken();
     if (!token) return;
 
     const groupId = localStorage.getItem("groupId");
@@ -496,6 +498,7 @@ export default function App() {
       headers: authHeaders()
     }).then(() => {
       localStorage.clear();
+      clearToken();
       setEmail(null);
       setManualBusy([]);
       setBusyTimes([]);
@@ -573,7 +576,7 @@ export default function App() {
           <SignInOptions
             notionAvailable={notionAvailable}
             onAuthenticated={(token, authedEmail) => {
-              localStorage.setItem("authToken", token);
+              saveToken(token);
               localStorage.setItem("userId", authedEmail);
               // A full reload (not just setEmail) so the mount-time fetchAvailability effect actually runs,
               // the same thing a Google sign-in redirect does by reloading the page.

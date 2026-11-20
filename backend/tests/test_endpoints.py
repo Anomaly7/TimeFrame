@@ -131,3 +131,18 @@ def test_cors_allows_the_custom_domain(client):
     for origin in ("https://www.timeframecalender.com", "https://timeframecalender.com"):
         r = client.options("/health", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
         assert r.headers.get("access-control-allow-origin") == origin
+
+
+def test_refresh_renews_the_session(client):
+    import time
+    import jwt
+    headers = signup(client, "r@example.com")
+    assert client.post("/auth/refresh").status_code == 401  # needs a valid session
+    long = client.post("/auth/refresh", headers=headers).json()
+    short = client.post("/auth/refresh?remember=false", headers=headers).json()
+    exp = lambda t: jwt.decode(t, options={"verify_signature": False})["exp"] - time.time()
+    assert exp(long["token"]) > 60 * 60 * 24 * 80
+    assert exp(short["token"]) < 60 * 60 * 13
+    # The fresh token works like any other session.
+    me = client.get("/auth/me", headers={"Authorization": "Bearer " + long["token"]})
+    assert me.status_code == 200 and me.json()["email"] == "r@example.com"

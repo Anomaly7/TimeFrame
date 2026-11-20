@@ -2,6 +2,7 @@ import { useState } from "react";
 import { API_URL } from "../config";
 import AppleConnect from "./AppleConnect";
 import EmailAuth from "./EmailAuth";
+import { rememberMe, setRememberMe } from "../session";
 
 // The sign-in page: one full-width button per way in (Google, Apple Calendar, Notion when it's set up, email).
 // Google and Notion go straight to their own sign-in; Apple and email open their small form in place.
@@ -34,6 +35,14 @@ const MailIcon = () => (
 
 export default function SignInOptions({ notionAvailable, onAuthenticated }) {
   const [open, setOpen] = useState(null); // null | "apple" | "email"
+  const [remember, setRemember] = useState(rememberMe);
+  const toggleRemember = (e) => { setRemember(e.target.checked); setRememberMe(e.target.checked); };
+  const rememberBox = (
+    <label className="remember-me">
+      <input type="checkbox" checked={remember} onChange={toggleRemember} />
+      <span>Keep me signed in</span>
+    </label>
+  );
 
   if (open) {
     return (
@@ -42,6 +51,7 @@ export default function SignInOptions({ notionAvailable, onAuthenticated }) {
         {open === "apple"
           ? <AppleConnect signedIn={false} bare onAuthenticated={onAuthenticated} onCancel={() => setOpen(null)} />
           : <EmailAuth onAuthenticated={onAuthenticated} />}
+        {rememberBox}
       </div>
     );
   }
@@ -62,6 +72,7 @@ export default function SignInOptions({ notionAvailable, onAuthenticated }) {
       <button type="button" className="provider-btn" onClick={() => setOpen("email")}>
         <MailIcon /><span>Continue with email</span>
       </button>
+      {rememberBox}
     </div>
   );
 }

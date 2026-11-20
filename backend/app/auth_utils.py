@@ -10,7 +10,9 @@ import jwt
 from fastapi import Header, HTTPException, Request
 
 ALGORITHM = "HS256"
-TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 days
+TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 days: what a fresh sign-in gets
+REMEMBER_TTL_SECONDS = 60 * 60 * 24 * 90  # "Remember me": renewed on every visit, so active users never get signed out
+SHORT_TTL_SECONDS = 60 * 60 * 12  # "Remember me" off: half a day at most (the browser also forgets it on close)
 OAUTH_STATE_TTL_SECONDS = 600
 
 
@@ -23,8 +25,8 @@ def _secret() -> str:
     return secret
 
 
-def create_session_token(user_id: str) -> str:
-    payload = {"sub": user_id, "exp": int(time.time()) + TOKEN_TTL_SECONDS, "typ": "session"}
+def create_session_token(user_id: str, ttl_seconds: int = TOKEN_TTL_SECONDS) -> str:
+    payload = {"sub": user_id, "exp": int(time.time()) + ttl_seconds, "typ": "session"}
     return jwt.encode(payload, _secret(), algorithm=ALGORITHM)
 
 

@@ -1126,3 +1126,5 @@
   .dash-range h1 { font-size: 1.3rem; }
   .dash-controls { width: 100%; justify-content: space-between; }
 }
+.remember-me { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; font-size: 0.88rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+.remember-me input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }

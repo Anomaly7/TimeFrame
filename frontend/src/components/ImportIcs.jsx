@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { API_URL } from "../config";
+import { getToken } from "../session";
 
 export default function ImportIcs({ onImported }) {
   const [files, setFiles] = useState([]);
@@ -7,7 +8,7 @@ export default function ImportIcs({ onImported }) {
   const [loading, setLoading] = useState(false);
 
   async function upload() {
-    const token = localStorage.getItem("authToken");
+    const token = getToken();
     if (!token) {
       setStatus("Connect Google Calendar or sign in first.");
       return;

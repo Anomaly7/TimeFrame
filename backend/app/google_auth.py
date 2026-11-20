@@ -10,7 +10,8 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from starlette.responses import RedirectResponse
 from app.availability import parse_event, find_free_time, PST
-from app.auth_utils import create_oauth_state, create_session_token, get_current_user, verify_oauth_state
+from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, create_session_token,
+                            get_current_user, verify_oauth_state)
 from datetime import datetime, time, timedelta
 from app.db import conn
 from app.busy_store import insert_busy_rows
@@ -243,6 +244,15 @@ def disconnect_google(user_id: str = Depends(get_current_user)):
 
 def default_name(user_id: str) -> str:
     return user_id.split("@")[0]
+
+
+@router.post("/auth/refresh")
+def refresh_session(remember: bool = True, user_id: str = Depends(get_current_user)):
+    """Swap a still-valid session token for a fresh one. With "Remember me" on the
+    app calls this on every visit, so someone who keeps using TimeFrame (or the
+    extension) stays signed in; only 90 days of not opening it signs them out."""
+    ttl = REMEMBER_TTL_SECONDS if remember else SHORT_TTL_SECONDS
+    return {"token": create_session_token(user_id, ttl), "expires_in": ttl}
 
 
 @router.get("/auth/me")

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { API_URL } from "../config";
+import { getToken } from "../session";
 
 // signedIn=false: "Continue with Notion" on the sign-in screen (the account is
 // your Notion email). signedIn=true: connect Notion to the account you're in.
@@ -18,7 +19,7 @@ export default function NotionConnect({ signedIn, connected, imported, onChanged
     try {
       const res = await fetch(`${API_URL}/notion/link-ticket`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.detail || "Couldn't start connecting Notion.");
@@ -32,7 +33,7 @@ export default function NotionConnect({ signedIn, connected, imported, onChanged
   async function disconnect() {
     await fetch(`${API_URL}/notion/disconnect`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
     }).catch(() => null);
     await onChanged();
   }

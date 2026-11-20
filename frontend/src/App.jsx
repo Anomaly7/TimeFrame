@@ -124,6 +124,7 @@ export default function App() {
   const [myName, setMyName] = useState("");
   const [hasCustomName, setHasCustomName] = useState(false);
   const [editingName, setEditingName] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [nameError, setNameError] = useState("");
 
@@ -597,158 +598,179 @@ export default function App() {
     );
   }
 
+  const displayName = myName || email;
+  const activeGroupName = activeGroup ? (activeGroup.name || "Group") : "Just me";
+
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-mark">🗓️</span>
-          <h1>TimeFrame</h1>
+    <div className="dash">
+      <header className="dash-topbar">
+        <div className="auth-logo dash-logo">
+          <img src="/favicon.svg" alt="" />
+          <span>TimeFrame</span>
         </div>
-        {editingName ? (
-          <form className="user-chip name-form" onSubmit={saveName}>
-            <input
-              value={nameDraft}
-              maxLength={40}
-              autoFocus
-              onFocus={(e) => e.target.select()}
-              placeholder={email.split("@")[0]}
-              aria-label="Your name"
-              onChange={(e) => setNameDraft(e.target.value)}
-            />
-            <button type="submit" className="link-btn">Save</button>
-            <button type="button" className="link-btn muted" onClick={() => { setEditingName(false); setNameError(""); }}>
-              Cancel
+        <span className="dash-viewing" title="Whose calendars you're looking at">
+          <span className="dash-viewing-dot" />{activeGroupName}
+        </span>
+        <div className="dash-user">
+          {editingName ? (
+            <form className="user-chip name-form" onSubmit={saveName}>
+              <input
+                value={nameDraft}
+                maxLength={40}
+                autoFocus
+                onFocus={(e) => e.target.select()}
+                placeholder={email.split("@")[0]}
+                aria-label="Your name"
+                onChange={(e) => setNameDraft(e.target.value)}
+              />
+              <button type="submit" className="link-btn">Save</button>
+              <button type="button" className="link-btn muted" onClick={() => { setEditingName(false); setNameError(""); }}>
+                Cancel
+              </button>
+              {nameError && <span className="error-text">{nameError}</span>}
+            </form>
+          ) : (
+            <button type="button" className="dash-user-btn" title={email} onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen}>
+              <span className="dash-avatar">{(displayName || "?").trim().charAt(0).toUpperCase()}</span>
+              <span className="dash-user-name">{displayName}</span>
+              <span className="dash-caret" aria-hidden="true">▾</span>
             </button>
-            {nameError && <span className="error-text">{nameError}</span>}
-          </form>
-        ) : (
-          <div className="user-chip" title={email}>
-            Signed in as <strong>{myName || email}</strong>
-            <button
-              className="link-btn"
-              onClick={() => { setNameDraft(hasCustomName ? myName : ""); setEditingName(true); }}
-              title="Change the name your group sees on your blocks"
-            >
-              ✏️ Edit name
-            </button>
-          </div>
-        )}
+          )}
+          {menuOpen && (
+            <>
+              <div className="dash-menu-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="dash-menu" role="menu">
+                <div className="dash-menu-head">
+                  <strong>{displayName}</strong>
+                  <span>{email}</span>
+                </div>
+                <button role="menuitem" onClick={() => { setMenuOpen(false); setNameDraft(hasCustomName ? myName : ""); setEditingName(true); }}>
+                  Edit display name
+                </button>
+                <button role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
+                <button role="menuitem" onClick={() => { setMenuOpen(false); clearAll(); }}>Clear my schedule</button>
+                <hr />
+                <button role="menuitem" className="danger" onClick={() => { setMenuOpen(false); logout(); }}>Sign out</button>
+              </div>
+            </>
+          )}
+        </div>
       </header>
 
-      <GoogleConnect connected={googleConnected} />
-      <AppleConnect connected={appleConnected} onChanged={onLinksChanged} />
-      {(notionAvailable || notionConnected) && (
-        <NotionConnect signedIn connected={notionConnected} imported={notionImported} onChanged={onLinksChanged} />
-      )}
+      <div className="dash-body">
+        <main className="dash-main">
+          <div className="dash-toolbar">
+            <div className="dash-range">
+              <h1>{formatRangeLabel(viewMode, viewDate)}</h1>
+              <span className="dash-tz">Times in {MY_TIMEZONE}</span>
+            </div>
+            <div className="dash-controls">
+              <div className="seg">
+                {["day", "week", "month"].map((m) => (
+                  <button key={m} className={viewMode === m ? "active" : ""} onClick={() => setViewMode(m)}>
+                    {m[0].toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="dash-nav">
+                <button className="icon-btn" onClick={goToPrevious} aria-label="Previous">‹</button>
+                <button className="today-btn" onClick={goToToday}>Today</button>
+                <button className="icon-btn" onClick={goToNext} aria-label="Next">›</button>
+              </div>
+              <button
+                className={`icon-btn ${settingsOpen ? "on" : ""}`}
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                aria-label="Settings"
+                title="Settings"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                  <path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
-      {/* Re-send the manual blocks: an empty list would delete them server-side. */}
-      <ImportIcs onImported={() => fetchAvailability(manualBusy)} />
+          {settingsOpen && (
+            <SettingsPanel
+              settings={effectiveSettings}
+              setSettings={changeSettings}
+              readOnly={settingsLocked}
+              error={settingsError}
+              note={
+                !activeGroup
+                  ? null
+                  : activeGroup.is_admin
+                    ? `You're the admin of ${activeGroup.name || "this group"}: these settings apply to everyone in it.`
+                    : activeGroup.claimable
+                      ? "This group has no admin yet, so your own settings apply. Claim admin in My groups to set them for everyone."
+                      : `Set by the group's admin${groupAdminName ? ` (${groupAdminName})` : ""}. Only they can change these.`
+              }
+            />
+          )}
 
-      <AvailabilityForm
-        manualBusy={manualBusy}
-        setManualBusy={setManualBusy}
-        onSubmit={(blocks) => fetchAvailability(blocks, { save: true })}
-      />
+          {viewMode === "month" ? (
+            <MonthView
+              viewDate={viewDate}
+              busyTimes={busyTimes}
+              freeTimes={freeTimes}
+              excludeWeekends={effectiveSettings.excludeWeekends}
+              currentUserId={localStorage.getItem("userId")}
+              onSelectDay={(date) => {
+                setViewDate(date);
+                setViewMode("day");
+              }}
+            />
+          ) : (
+            <CalendarView
+              mode={viewMode}
+              viewDate={viewDate}
+              busyTimes={busyTimes}
+              freeTimes={freeTimes}
+              excludeWeekends={effectiveSettings.excludeWeekends}
+              dayStartHour={parseInt(effectiveSettings.dayStart.split(":")[0], 10)}
+              dayEndHour={parseInt(effectiveSettings.dayEnd.split(":")[0], 10)}
+              timezone={MY_TIMEZONE}
+              currentUserId={localStorage.getItem("userId")}
+            />
+          )}
+        </main>
 
-      <div className="toolbar">
-        <button className="btn-ghost" onClick={clearAll}>Clear Schedule</button>
-        <button className="btn-ghost" onClick={logout}>Logout / Disconnect Google</button>
+        <aside className="dash-side">
+          <section className="side-section">
+            <h3 className="side-label">Groups</h3>
+            <GroupsPanel
+              authHeaders={authHeaders}
+              activeGroupId={activeGroupId}
+              onSwitch={switchGroup}
+              refreshKey={groupsRefresh}
+              groups={groups}
+              setGroups={setGroups}
+              personalSettings={settings}
+            />
+          </section>
+
+          <section className="side-section">
+            <h3 className="side-label">Calendars</h3>
+            <GoogleConnect connected={googleConnected} />
+            <AppleConnect connected={appleConnected} onChanged={onLinksChanged} />
+            {(notionAvailable || notionConnected) && (
+              <NotionConnect signedIn connected={notionConnected} imported={notionImported} onChanged={onLinksChanged} />
+            )}
+            {/* Re-send the manual blocks: an empty list would delete them server-side. */}
+            <ImportIcs onImported={() => fetchAvailability(manualBusy)} />
+          </section>
+
+          <section className="side-section">
+            <h3 className="side-label">Busy times</h3>
+            <AvailabilityForm
+              manualBusy={manualBusy}
+              setManualBusy={setManualBusy}
+              onSubmit={(blocks) => fetchAvailability(blocks, { save: true })}
+            />
+          </section>
+        </aside>
       </div>
-
-      <GroupsPanel
-        authHeaders={authHeaders}
-        activeGroupId={activeGroupId}
-        onSwitch={switchGroup}
-        refreshKey={groupsRefresh}
-        groups={groups}
-        setGroups={setGroups}
-        personalSettings={settings}
-      />
-
-      <p className="tz-note">
-        🌐 Your times: <strong>{MY_TIMEZONE}</strong> · Other group members'
-        times are shown relative to this same timezone
-      </p>
-
-      <div className="tabs">
-        <button
-          className={`tab ${viewMode === "day" ? "active" : ""}`}
-          onClick={() => setViewMode("day")}
-        >
-          Day
-        </button>
-        <button
-          className={`tab ${viewMode === "week" ? "active" : ""}`}
-          onClick={() => setViewMode("week")}
-        >
-          Week
-        </button>
-        <button
-          className={`tab ${viewMode === "month" ? "active" : ""}`}
-          onClick={() => setViewMode("month")}
-        >
-          Month
-        </button>
-        <button
-          className="settings-toggle"
-          onClick={() => setSettingsOpen(!settingsOpen)}
-          aria-label="Settings"
-          title="Settings"
-        >
-          ⚙️
-        </button>
-      </div>
-
-      {settingsOpen && (
-        <SettingsPanel
-          settings={effectiveSettings}
-          setSettings={changeSettings}
-          readOnly={settingsLocked}
-          error={settingsError}
-          note={
-            !activeGroup
-              ? null
-              : activeGroup.is_admin
-                ? `You're the admin of ${activeGroup.name || "this group"}: these settings apply to everyone in it.`
-                : activeGroup.claimable
-                  ? "This group has no admin yet, so your own settings apply. Claim admin in My groups to set them for everyone."
-                  : `Set by the group's admin${groupAdminName ? ` (${groupAdminName})` : ""}. Only they can change these.`
-          }
-        />
-      )}
-
-      <div className="calendar-nav">
-        <button className="btn-ghost" onClick={goToPrevious} aria-label="Previous">‹</button>
-        <button className="btn-ghost" onClick={goToToday}>Today</button>
-        <button className="btn-ghost" onClick={goToNext} aria-label="Next">›</button>
-        <span className="calendar-nav-label">{formatRangeLabel(viewMode, viewDate)}</span>
-      </div>
-
-      {viewMode === "month" ? (
-        <MonthView
-          viewDate={viewDate}
-          busyTimes={busyTimes}
-          freeTimes={freeTimes}
-          excludeWeekends={effectiveSettings.excludeWeekends}
-          currentUserId={localStorage.getItem("userId")}
-          onSelectDay={(date) => {
-            setViewDate(date);
-            setViewMode("day");
-          }}
-        />
-      ) : (
-        <CalendarView
-          mode={viewMode}
-          viewDate={viewDate}
-          busyTimes={busyTimes}
-          freeTimes={freeTimes}
-          excludeWeekends={effectiveSettings.excludeWeekends}
-          dayStartHour={parseInt(effectiveSettings.dayStart.split(":")[0], 10)}
-          dayEndHour={parseInt(effectiveSettings.dayEnd.split(":")[0], 10)}
-          timezone={MY_TIMEZONE}
-          currentUserId={localStorage.getItem("userId")}
-        />
-      )}
     </div>
   );
 }

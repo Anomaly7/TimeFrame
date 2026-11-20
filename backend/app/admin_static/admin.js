@@ -129,8 +129,11 @@ function show(err) { if (err.message !== "signed out") msg("actMsg", err.message
 async function start() {
   try {
     await loadOverview();
-    $("login").hidden = true; $("app").hidden = false;
-    await Promise.all([loadUsers(), loadAudit()]);
-  } catch (err) { show(err); }
+  } catch (err) {
+    if (err.message === "signed out") return;
+    msg("actMsg", "Overview didn't load: " + err.message, "err"); // never leave a blank page
+  }
+  $("login").hidden = true; $("app").hidden = false;
+  await Promise.all([loadUsers().catch(show), loadAudit().catch(show)]);
 }
 start();

@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
 # CREATE TABLE IF NOT EXISTS above won't retrofit a new column onto a
 # users table that already exists in production.
 existing_user_columns = {row[0] for row in conn.execute(
-    "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users'"
 ).fetchall()}
 if "password_hash" not in existing_user_columns:
     conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
@@ -118,10 +118,11 @@ if "plan" not in existing_user_columns:
 
 # When the account was made (unix seconds), for the owner's admin page. Accounts from before 2026-11-20 stay NULL
 # (unknown); new ones get it from the column default, so no sign-up code has to change.
-if "created_at" not in existing_user_columns:
-    conn.execute("ALTER TABLE users ADD COLUMN created_at BIGINT")
-    conn.execute("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM now()))::bigint")
-    conn.commit()
+# Not gated on existing_user_columns: that list also sees Supabase's own auth.users table, which already has a
+# created_at, so the column was never added (2026-11-20). Both statements are safe to run on every start.
+conn.execute("ALTER TABLE public.users ADD COLUMN IF NOT EXISTS created_at BIGINT")
+conn.execute("ALTER TABLE public.users ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM now()))::bigint")
+conn.commit()
 
 # Owner admin page (admin.py): every sign-in attempt and change, kept for the audit trail and the lockouts.
 conn.execute("""

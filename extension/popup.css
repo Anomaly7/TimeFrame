@@ -66,3 +66,5 @@ select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border
   border: 1px solid var(--border); border-radius: 10px; }
 .pick.best { border-color: var(--good); background: var(--good-soft); }
 .pick-when { font-weight: 600; font-size: 13px; }
+
+.logo img { box-shadow: 0 0 0 1px var(--border); }

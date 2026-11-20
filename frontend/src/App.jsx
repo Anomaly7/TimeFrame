@@ -525,14 +525,50 @@ export default function App() {
   // stays completely hidden until Google sign-in succeeds.
   if (email === null) {
     return (
-      <div className="login-gate">
-        <main className="login-card">
-          <div className="login-brand">
-            <span className="brand-mark">🗓️</span>
+      <div className="auth-shell">
+        <aside className="auth-hero" aria-hidden="true">
+          <div className="auth-logo auth-logo-light">
+            <img src="/favicon.svg" alt="" />
             <span>TimeFrame</span>
           </div>
-          <h2>Sign in</h2>
-          <p className="login-tagline">Find a time that works for everyone.</p>
+          <div className="hero-copy">
+            <h2>Find a time that works for everyone.</h2>
+          </div>
+          {/* A small picture of the product: three people's week, with the best shared slot picked. */}
+          <div className="hero-preview">
+            <div className="hp-head">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
+            </div>
+            <div className="hp-grid">
+              <i className="hp-b p0" style={{ gridColumn: 1, gridRow: "1 / 3" }} />
+              <i className="hp-b p1" style={{ gridColumn: 1, gridRow: "4 / 6" }} />
+              <i className="hp-b p2" style={{ gridColumn: 2, gridRow: "2 / 4" }} />
+              <i className="hp-b p0" style={{ gridColumn: 2, gridRow: "5 / 7" }} />
+              <i className="hp-b p1" style={{ gridColumn: 3, gridRow: "1 / 2" }} />
+              <i className="hp-b p2" style={{ gridColumn: 3, gridRow: "3 / 5" }} />
+              <i className="hp-best" style={{ gridColumn: 4, gridRow: "3 / 5" }}>
+                <b>👑 Best time</b><small>2:00 – 3:00 PM</small>
+              </i>
+              <i className="hp-b p0" style={{ gridColumn: 4, gridRow: "1 / 2" }} />
+              <i className="hp-b p2" style={{ gridColumn: 4, gridRow: "6 / 7" }} />
+              <i className="hp-b p1" style={{ gridColumn: 5, gridRow: "2 / 4" }} />
+              <i className="hp-b p0" style={{ gridColumn: 5, gridRow: "5 / 6" }} />
+            </div>
+            <div className="hp-people">
+              <span className="hp-dot p0" /><span className="hp-dot p1" /><span className="hp-dot p2" />
+              <em>3 calendars merged</em>
+            </div>
+          </div>
+        </aside>
+
+        <div className="auth-side">
+        <main className="auth-panel">
+          <div className="auth-logo auth-logo-mobile">
+            <img src="/favicon.svg" alt="" />
+            <span>TimeFrame</span>
+          </div>
+          <h1 className="auth-title">Welcome to TimeFrame</h1>
+          <p className="auth-sub">Sign in or create an account to continue.</p>
           <SignInOptions
             notionAvailable={notionAvailable}
             onAuthenticated={(token, authedEmail) => {
@@ -543,13 +579,20 @@ export default function App() {
               window.location.reload();
             }}
           />
+          <p className="auth-legal">
+            By continuing, you agree to the <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy Policy</a>.
+          </p>
         </main>
 
-        <footer className="landing-footer">
-          <a href="/privacy.html">Privacy</a>
-          <a href="/terms.html">Terms</a>
-          <a href="mailto:sam.esebor@gmail.com">Contact</a>
+        <footer className="auth-footer">
+          <span>© {new Date().getFullYear()} TimeFrame</span>
+          <nav>
+            <a href="/privacy.html">Privacy</a>
+            <a href="/terms.html">Terms</a>
+            <a href="mailto:sam.esebor@gmail.com">Contact</a>
+          </nav>
         </footer>
+        </div>
       </div>
     );
   }

@@ -41,12 +41,12 @@ $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("loginBtn").disabled = true; msg("loginMsg", "Checking…");
   try {
-    await api("login", { password: $("pw").value, code: $("code").value });
-    $("pw").value = ""; $("code").value = ""; msg("loginMsg", "");
+    await api("login", { password: $("pw").value, code: $("code") ? $("code").value : "" });
+    $("pw").value = ""; if ($("code")) $("code").value = ""; msg("loginMsg", "");
     start();
   } catch (err) {
     if (err.message !== "signed out") msg("loginMsg", err.message, "err");
-    $("code").value = "";
+    if ($("code")) $("code").value = "";
   } finally { $("loginBtn").disabled = false; }
 });
 $("logout").addEventListener("click", async () => { try { await api("logout", {}); } catch { /* fine */ } showLogin(""); });

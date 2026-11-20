@@ -4,9 +4,11 @@ Lives on the API server. Open it at https://www.timeframecalender.com/admin: Ver
 (frontend/vercel.json), so the browser only ever talks to the website's own domain. The Render address works too.
 
 Security, layer by layer:
-- OFF unless ADMIN_PASSWORD (16+ characters) AND ADMIN_TOTP_SECRET (authenticator app) are set in Render.
+- OFF unless ADMIN_PASSWORD (16+ characters) is set in Render.
   Until then every /admin address answers 404, as if it didn't exist.
-- Sign-in needs both the password and a 6-digit authenticator code (each code works once).
+- Sign-in needs the password. The 6-digit authenticator code is OPTIONAL (Sam, 2026-11-20: off for now): it is only asked
+  for while ADMIN_TOTP_SECRET is set in Render (each code works once). A key that is set but invalid keeps the page OFF,
+  so a typo can never quietly switch the code off.
 - Lockouts, counted in the database so a restart doesn't reset them: 5 failures from one address in 15 minutes
   locks that address; 10 failures from anywhere in an hour closes the admin sign-in for everyone for an hour.
 - Sam's phone is alerted (OWNER_NTFY_TOPIC) on every successful sign-in and on every lockout.
@@ -25,6 +27,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import struct
 import threading
 import time
@@ -89,8 +92,13 @@ def _totp_secret() -> bytes | None:
     return key if len(key) >= 10 else None  # 80+ bits
 
 
+def code_required() -> bool:
+    """The authenticator code is asked for only while ADMIN_TOTP_SECRET is set."""
+    return bool(os.getenv("ADMIN_TOTP_SECRET", "").strip())
+
+
 def enabled() -> bool:
-    return len(_password()) >= MIN_PASSWORD and _totp_secret() is not None
+    return len(_password()) >= MIN_PASSWORD and (not code_required() or _totp_secret() is not None)
 
 
 def why_disabled() -> str | None:
@@ -101,10 +109,7 @@ def why_disabled() -> str | None:
         problems.append("ADMIN_PASSWORD is not set")
     elif len(pw) < MIN_PASSWORD:
         problems.append(f"ADMIN_PASSWORD is shorter than {MIN_PASSWORD} characters")
-    raw = os.getenv("ADMIN_TOTP_SECRET", "").strip()
-    if not raw:
-        problems.append("ADMIN_TOTP_SECRET is not set")
-    elif _totp_secret() is None:
+    if code_required() and _totp_secret() is None:
         problems.append("ADMIN_TOTP_SECRET is not a valid authenticator key (use the key line admin_setup.py prints: "
                         "letters A-Z and digits 2-7, at least 16 of them)")
     return "; ".join(problems) or None
@@ -249,6 +254,10 @@ def admin_file(request: Request):
     if not enabled():
         _not_found()
     name, media = _FILES[request.url.path.strip("/")]
+    if name == "admin.html" and not code_required():  # password only: drop the code box
+        html = (STATIC / name).read_text(encoding="utf-8")
+        html = re.sub(r'\s*<label>Authenticator code.*?</label>', "", html, flags=re.S)
+        return _secure(Response(content=html, media_type=media))
     return _secure(FileResponse(STATIC / name, media_type=media))
 
 
@@ -265,7 +274,7 @@ def login(request: Request, body: dict = Body(...)):
         raise HTTPException(status_code=429, detail="Too many wrong tries from here. Wait 15 minutes.")
 
     pw_ok = _check_password(body.get("password"))
-    code_ok = pw_ok and _check_code(body.get("code"))  # a code is only "spent" with the right password
+    code_ok = pw_ok and (not code_required() or _check_code(body.get("code")))  # a code is only "spent" with the right password
     if not (pw_ok and code_ok):
         audit(ip, "login_failed", "wrong password" if not pw_ok else "wrong or reused code")
         if _count("login_failed", now - ALL_WINDOW) >= ALL_MAX:

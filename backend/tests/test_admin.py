@@ -35,11 +35,10 @@ def login(c, pw=PW, offset=0):
     return c.post("/admin/api/login", json={"password": pw, "code": code(offset)}, headers=H)
 
 
-def test_admin_does_not_exist_until_both_secrets_are_set(client, monkeypatch):
+def test_admin_does_not_exist_until_a_long_password_is_set(client, monkeypatch):
     assert client.get("/admin").status_code == 404
-    monkeypatch.setenv("ADMIN_PASSWORD", PW)
-    assert client.get("/admin").status_code == 404  # no authenticator secret yet
     monkeypatch.setenv("ADMIN_TOTP_SECRET", TOTP)
+    assert client.get("/admin").status_code == 404  # no password yet
     monkeypatch.setenv("ADMIN_PASSWORD", "short-password")
     assert client.get("/admin").status_code == 404  # password under 16 characters
     assert client.post("/admin/api/login", json={}, headers=H).status_code == 404
@@ -137,3 +136,22 @@ def test_list_search_grant_and_remove_pro(admin, client):
 def signup_login(client, email):
     r = client.post("/auth/login", json={"email": email, "password": "correct-horse-battery"})
     return {"Authorization": "Bearer " + r.json()["token"]}
+
+
+def test_password_only_when_no_authenticator_key_is_set(client, monkeypatch):
+    """Sam, 2026-11-20: the code is optional for now. With no ADMIN_TOTP_SECRET the password alone signs in."""
+    monkeypatch.setenv("ADMIN_PASSWORD", PW)
+    monkeypatch.delenv("ADMIN_TOTP_SECRET", raising=False)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    c = TestClient(client.app, base_url="https://testserver")
+    page = c.get("/admin")
+    assert page.status_code == 200 and "Authenticator code" not in page.text
+    assert c.post("/admin/api/login", json={"password": "wrong-password-wrong"}, headers=H).status_code == 401
+    assert c.post("/admin/api/login", json={"password": PW}, headers=H).status_code == 200
+    assert c.get("/admin/api/overview", headers=H).status_code == 200
+
+
+def test_an_invalid_authenticator_key_keeps_the_page_off(client, monkeypatch):
+    monkeypatch.setenv("ADMIN_PASSWORD", PW)
+    monkeypatch.setenv("ADMIN_TOTP_SECRET", "not a key!")
+    assert client.get("/admin").status_code == 404

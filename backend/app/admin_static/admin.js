@@ -71,7 +71,7 @@ async function loadOverview() {
     [h.database ? "ok" : "bad", "Database " + (h.database ? "up" : "DOWN")],
     [h.stripe === "live" ? "ok" : "warn", "Stripe: " + (h.stripe === "live" ? "live" : h.stripe === "test" ? "TEST mode" : "not set up")],
     ["ok", "Prices " + h.prices.month + "/mo, " + h.prices.year + "/yr " + h.currency + ", " + h.trialDays + "-day trial"],
-    [h.tax ? "ok" : "warn", "Sales tax " + (h.tax ? "added at checkout" : "off (PRO_COLLECT_TAX)")],
+    [h.tax ? "ok" : "warn", "Sales tax " + (h.tax ? "added on top at checkout" : "not charged yet (turn on after GST/HST registration)")],
     ["ok", "Coupon " + (h.coupon ? "set" : "not set")],
     [h.alerts ? "ok" : "bad", "Phone alerts " + (h.alerts ? "on" : "OFF: set OWNER_NTFY_TOPIC")],
     ["ok", "Server up since " + when(h.upSince)],
@@ -124,6 +124,18 @@ async function loadAudit() {
   $("audit").replaceChildren(...d.events.map((e) => el("li", { class: e.action === "login_failed" ? "bad" : "" },
     when(e.at) + " · " + (label[e.action] || e.action) + " · " + e.ip + (e.detail && e.action !== "login" ? " · " + e.detail : ""))));
 }
+
+// ---- task bar: one section at a time (remembered in the address, e.g. /admin#accounts) ----
+const TABS = ["overview", "accounts", "health", "activity"];
+function openTab(name) {
+  if (!TABS.includes(name)) name = "overview";
+  for (const b of document.querySelectorAll("#tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+  for (const p of document.querySelectorAll("[data-panel]")) p.hidden = p.dataset.panel !== name;
+  if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
+}
+$("tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) openTab(b.dataset.tab); });
+window.addEventListener("hashchange", () => openTab(location.hash.slice(1)));
+openTab(location.hash.slice(1));
 
 function show(err) { if (err.message !== "signed out") msg("actMsg", err.message, "err"); }
 async function start() {

@@ -29,22 +29,29 @@
     <button type="button" id="logout" class="ghost">Sign out</button>
   </header>
 
-  <section class="card">
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Admin sections">
+    <button type="button" role="tab" data-tab="overview">Overview</button>
+    <button type="button" role="tab" data-tab="accounts">Accounts</button>
+    <button type="button" role="tab" data-tab="health">Health</button>
+    <button type="button" role="tab" data-tab="activity">Activity</button>
+  </nav>
+  <p id="actMsg" class="msg page-msg" role="status"></p>
+
+  <section class="card" data-panel="overview">
     <h2>Overview</h2>
     <div id="stats" class="stats"></div>
     <div id="cals" class="dim"></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-panel="health">
     <h2>Health</h2>
     <ul id="health" class="health"></ul>
     <p class="dim">Money, payouts and refunds: <a href="https://dashboard.stripe.com/" target="_blank" rel="noopener noreferrer">Stripe dashboard</a>.</p>
   </section>
 
-  <section class="card">
+  <section class="card" data-panel="accounts">
     <h2>Accounts</h2>
     <form id="searchForm" class="row"><input id="q" type="search" placeholder="Search by email" maxlength="100"><button type="submit">Search</button></form>
-    <p id="actMsg" class="msg" role="status"></p>
     <div class="tablewrap"><table>
       <thead><tr><th>Account</th><th>Joined</th><th>Sign-in / calendars</th><th>Groups</th><th>Plan</th><th></th></tr></thead>
       <tbody id="users"></tbody>
@@ -52,7 +59,7 @@
     <div class="row"><button type="button" id="prev" class="ghost">‹ Newer</button><button type="button" id="next" class="ghost">Older ›</button></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-panel="activity">
     <h2>Admin activity</h2>
     <p class="dim">Every sign-in attempt and change made here. Wrong tries you don't recognise? Change ADMIN_PASSWORD and ADMIN_TOTP_SECRET in Render.</p>
     <ul id="audit" class="audit"></ul>

@@ -17,7 +17,7 @@ def test_early_supporters_keep_pro_and_new_free_users_cannot_create_groups(clien
     free = signup(client, "free@example.com")
     make_free(client, "free@example.com")
     st = client.get("/billing/status", headers=free).json()
-    assert st["pro"] is False and st["prices"] == {"month": "$4.47", "year": "$29"}
+    assert st["pro"] is False and st["prices"] == {"month": "$4.47", "year": "$30.40"}
     r = client.post("/groups/join?group_id=Wxyz2345", headers=free)
     assert r.status_code == 402 and "Pro" in r.json()["detail"]
     # ...but joining someone else's group is free.
@@ -67,7 +67,7 @@ def test_stripe_checkout_confirm_and_lapse(client, monkeypatch):
     r = client.post("/billing/checkout", json={"interval": "year"}, headers=h)
     assert r.status_code == 200 and r.json()["url"].startswith("https://checkout.stripe.com/")
     sent = calls[0][2]
-    assert sent["line_items"][0]["price_data"]["unit_amount"] == 2900
+    assert sent["line_items"][0]["price_data"]["unit_amount"] == 3040
     assert sent["subscription_data"]["trial_period_days"] == 7 and sent["client_reference_id"] == "s@example.com"
     # Someone else's checkout can't be claimed.
     other = signup(client, "o@example.com")

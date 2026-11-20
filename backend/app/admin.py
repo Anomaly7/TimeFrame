@@ -1,6 +1,7 @@
 """Owner-only admin page (Sam, 2026-11-20): accounts, Pro status, and app health.
 
-Served by the API server itself (https://<api>/admin), never by the public website.
+Lives on the API server. Open it at https://www.timeframecalender.com/admin: Vercel forwards that address here
+(frontend/vercel.json), so the browser only ever talks to the website's own domain. The Render address works too.
 
 Security, layer by layer:
 - OFF unless ADMIN_PASSWORD (16+ characters) AND ADMIN_TOTP_SECRET (authenticator app) are set in Render.
@@ -174,11 +175,22 @@ def _issue(response: Response, ip: str):
     response.set_cookie(COOKIE, token, max_age=SESSION_SECONDS, path="/", secure=True, httponly=True, samesite="strict")
 
 
+def _site_hosts() -> set[str]:
+    """The page is also reached at https://www.timeframecalender.com/admin: Vercel forwards /admin there to this
+    server (frontend/vercel.json), so to the browser it is the website's own address."""
+    raw = os.getenv("ADMIN_SITE_HOSTS", "www.timeframecalender.com,timeframecalender.com")
+    return {h.strip().lower() for h in raw.split(",") if h.strip()}
+
+
 def _same_origin(request: Request) -> bool:
     origin = request.headers.get("origin")
     if not origin:
         return True  # same-origin GETs often omit it; the custom header below still has to be there
-    return urllib.parse.urlsplit(origin).netloc.lower() == (request.headers.get("host") or "").lower()
+    parts = urllib.parse.urlsplit(origin)
+    if parts.scheme != "https" and parts.hostname not in ("localhost", "127.0.0.1", "testserver"):
+        return False
+    host = parts.netloc.lower()
+    return host == (request.headers.get("host") or "").lower() or host in _site_hosts()
 
 
 def _guard_api(request: Request):

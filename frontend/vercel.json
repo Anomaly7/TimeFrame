@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/admin", "destination": "https://calender-app-mm4q.onrender.com/admin" },
+    { "source": "/admin/:path*", "destination": "https://calender-app-mm4q.onrender.com/admin/:path*" }
+  ]
+}

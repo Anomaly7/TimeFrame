@@ -79,6 +79,10 @@ def test_cross_site_and_headerless_requests_are_refused(admin):
     assert admin.get("/admin/api/overview").status_code == 403  # no X-TF-Admin header
     assert admin.get("/admin/api/overview", headers={**H, "Origin": "https://evil.example"}).status_code == 403
     assert admin.get("/admin/api/overview", headers={**H, "Origin": "https://testserver"}).status_code == 200
+    # the website address (Vercel forwards www.timeframecalender.com/admin here), but only over https
+    assert admin.get("/admin/api/overview", headers={**H, "Origin": "https://www.timeframecalender.com"}).status_code == 200
+    assert admin.get("/admin/api/overview", headers={**H, "Origin": "http://www.timeframecalender.com"}).status_code == 403
+    assert admin.get("/admin/api/overview", headers={**H, "Origin": "https://www.timeframecalender.com.evil.example"}).status_code == 403
 
 
 def test_lockout_per_address_then_for_everyone(admin):

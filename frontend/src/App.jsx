@@ -14,6 +14,7 @@ import SettingsPanel from "./components/SettingsPanel";
 import ImportIcs from "./components/ImportIcs";
 import GroupsPanel from "./components/GroupsPanel";
 import UpgradeModal from "./components/UpgradeModal";
+import { hideLoader, showLoader } from "./loading";
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -131,6 +132,7 @@ export default function App() {
   const [billing, setBilling] = useState(null);
   const [upgrade, setUpgrade] = useState(null); // null = closed, otherwise the reason shown at the top
   const [billingNote, setBillingNote] = useState("");
+  const [fetching, setFetching] = useState(0); // calendar requests in flight -> thin progress bar at the top
   const [nameDraft, setNameDraft] = useState("");
   const [nameError, setNameError] = useState("");
 
@@ -438,11 +440,17 @@ export default function App() {
       const res = await fetch(`${API_URL}/billing/portal`, { method: "POST", headers: authHeaders() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Couldn't open billing.");
+      showLoader();
       window.location.href = data.url;
     } catch (err) {
       setBillingNote(err.message);
     }
   }
+
+  // The session check is done (signed in or not): fade the logo loading screen away.
+  useEffect(() => {
+    if (email !== undefined) hideLoader();
+  }, [email]);
 
   const isPro = !!billing?.pro;
   const proLabel = !billing?.pro ? "" : billing.source === "early" ? "Early supporter"
@@ -516,6 +524,8 @@ export default function App() {
   async function fetchAvailability(extraBusy = [], { save = false } = {}) {
     const token = tokenFromUrl || getToken();
     if (!token) return;
+    setFetching((n) => n + 1);
+    try {
 
     const groupId = localStorage.getItem("groupId");
     const groupParam = groupId ? `&group=${groupId}` : "";
@@ -537,6 +547,9 @@ export default function App() {
     const data = await res.json();
     setBusyTimes(data.busy_times);
     setFreeTimes(data.ranked_free_time);
+    } finally {
+      setFetching((n) => Math.max(0, n - 1));
+    }
   }
 
   // 🧼 CLEAR EVERYTHING
@@ -577,13 +590,8 @@ export default function App() {
   // Still verifying a returning session. Usually instant, but a sleeping
   // server can take most of a minute to wake, so say what's happening
   // instead of showing a blank page.
-  if (email === undefined) {
-    return (
-      <div className="app" style={{ display: "grid", placeItems: "center", minHeight: "60vh", opacity: 0.7 }}>
-        <p>Connecting to TimeFrame… this can take up to a minute the first time.</p>
-      </div>
-    );
-  }
+  // Still checking the session: the logo loading screen from index.html stays up (see loading.js).
+  if (email === undefined) return null;
 
   // No valid session - the rest of the app (and the data it would show)
   // stays completely hidden until Google sign-in succeeds.
@@ -666,6 +674,7 @@ export default function App() {
 
   return (
     <div className="dash">
+      {fetching > 0 && <div className="top-progress" role="progressbar" aria-label="Loading"><span /></div>}
       <header className="dash-topbar">
         <div className="auth-logo dash-logo">
           <img src="/favicon.svg" alt="" />

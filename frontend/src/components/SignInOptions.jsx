@@ -3,6 +3,7 @@ import { API_URL } from "../config";
 import AppleConnect from "./AppleConnect";
 import EmailAuth from "./EmailAuth";
 import { rememberMe, setRememberMe } from "../session";
+import { showLoader } from "../loading";
 
 // The sign-in page: one full-width button per way in (Google, Apple Calendar, Notion when it's set up, email).
 // Google and Notion go straight to their own sign-in; Apple and email open their small form in place.
@@ -58,14 +59,14 @@ export default function SignInOptions({ notionAvailable, onAuthenticated }) {
 
   return (
     <div className="provider-list">
-      <button type="button" className="provider-btn" onClick={() => { window.location.href = `${API_URL}/auth/login`; }}>
+      <button type="button" className="provider-btn" onClick={() => { showLoader(); window.location.href = `${API_URL}/auth/login`; }}>
         <GoogleIcon /><span>Continue with Google</span>
       </button>
       <button type="button" className="provider-btn" onClick={() => setOpen("apple")}>
         <AppleIcon /><span>Continue with Apple Calendar</span>
       </button>
       {notionAvailable && (
-        <button type="button" className="provider-btn" onClick={() => { window.location.href = `${API_URL}/notion/login`; }}>
+        <button type="button" className="provider-btn" onClick={() => { showLoader(); window.location.href = `${API_URL}/notion/login`; }}>
           <NotionIcon /><span>Continue with Notion</span>
         </button>
       )}

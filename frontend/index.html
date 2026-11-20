@@ -13,24 +13,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TimeFrame — Find Free Time</title>
     <meta name="description" content="TimeFrame finds a time that works for everyone. Connect Google Calendar, Apple Calendar, Notion or a calendar file, share a group link, and get the best meeting times. It only sees when you're busy, never what your events are." />
+    <style>
+      /* Loading screen (2026-11-20): shown instantly, before the app's code arrives; the app reuses it (Loader.jsx). */
+      html, body { margin: 0; background: #f5f6fa; }
+      @media (prefers-color-scheme: dark) { html, body { background: #14151f; } }
+      .tf-loader { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 28px; background: #f5f6fa; transition: opacity .35s ease; }
+      @media (prefers-color-scheme: dark) { .tf-loader { background: #14151f; } }
+      .tf-loader.done { opacity: 0; pointer-events: none; }
+      .tf-mark { width: 150px; height: 150px; overflow: visible; margin-bottom: -40px; }
+      .tf-mark polygon { stroke: #5b5ff0; stroke-width: 1.1; stroke-linejoin: round; fill: #5b5ff0; fill-opacity: 0;
+        stroke-dasharray: 1; stroke-dashoffset: 1; animation: tf-draw 2.4s cubic-bezier(.65,0,.35,1) infinite; }
+      @keyframes tf-draw {
+        0%   { stroke-dashoffset: 1; fill-opacity: 0; }
+        45%  { stroke-dashoffset: 0; fill-opacity: 0; }
+        62%  { stroke-dashoffset: 0; fill-opacity: 1; }
+        85%  { stroke-dashoffset: 0; fill-opacity: 1; opacity: 1; }
+        100% { stroke-dashoffset: 0; fill-opacity: 1; opacity: 0; }
+      }
+      .tf-bar { width: 160px; height: 4px; border-radius: 999px; background: rgba(91,95,240,.15); overflow: hidden; }
+      .tf-bar span { display: block; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, #5b5ff0, #7c3aed);
+        animation: tf-slide 1.25s ease-in-out infinite; }
+      @keyframes tf-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+      @media (prefers-reduced-motion: reduce) {
+        .tf-mark polygon { animation: none; stroke-dashoffset: 0; fill-opacity: 1; }
+        .tf-bar span { animation-duration: 3s; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root">
-      <!-- Shown before the app loads (and to anything that doesn't run JavaScript). React replaces it. -->
+    <div id="boot-loader" class="tf-loader" role="status" aria-label="Loading TimeFrame">
+      <svg class="tf-mark" viewBox="0 0 64 64" aria-hidden="true"><polygon pathLength="1" points="1.28,16.73 39.82,16.73 35.45,24.73 28.00,24.73 32.55,32.36 38.18,24.73 43.27,16.73 62.72,16.73 54.90,24.73 46.72,24.73 44.18,31.09 48.54,31.09 42.54,36.54 38.36,36.91 32.36,47.27 17.28,24.73 9.28,24.73"/></svg>
+      <div class="tf-bar"><span></span></div>
+    </div>
+    <div id="root"></div>
+    <noscript>
       <main style="max-width:640px;margin:10vh auto;padding:0 1.25rem;font-family:system-ui,sans-serif;line-height:1.6;color:#1b1d29">
         <h1>TimeFrame</h1>
-        <p><strong>Find a time that works for everyone.</strong></p>
-        <p>TimeFrame reads when you're busy from Google Calendar, Apple Calendar, Notion or a calendar file, merges it with
-          your group's schedules and ranks the best meeting times. It only uses <em>when</em> you're busy (read-only),
-          never what your events are, and never stores event titles.</p>
-        <ol>
-          <li>Connect a calendar, or add busy times by hand.</li>
-          <li>Share a group link with friends or teammates.</li>
-          <li>Pick from the free slots that suit everyone.</li>
-        </ol>
+        <p><strong>Find a time that works for everyone.</strong> TimeFrame reads when you're busy from Google Calendar, Apple Calendar,
+          Notion or a calendar file, merges it with your group's schedules and ranks the best meeting times. It only uses when you're
+          busy (read-only), never what your events are. Turn on JavaScript to use it.</p>
         <p><a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a> · <a href="mailto:sam.esebor@gmail.com">Contact</a></p>
       </main>
-    </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

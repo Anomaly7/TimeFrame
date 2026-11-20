@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { API_URL } from "../config";
+import { showLoader } from "../loading";
 
 // TimeFrame Pro checkout (2026-11-20): pick monthly or yearly and go to Stripe, or enter a coupon
 // (the coupon gives Pro for free right here, no card).
@@ -35,6 +36,7 @@ export default function UpgradeModal({ status, authHeaders, onClose, onUpgraded,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Couldn't start checkout.");
+      showLoader();
       window.location.href = data.url;
     } catch (err) {
       setError(err.message);

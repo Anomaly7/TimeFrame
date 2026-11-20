@@ -146,3 +146,13 @@ def test_refresh_renews_the_session(client):
     # The fresh token works like any other session.
     me = client.get("/auth/me", headers={"Authorization": "Bearer " + long["token"]})
     assert me.status_code == 200 and me.json()["email"] == "r@example.com"
+
+
+def test_google_login_refuses_unknown_app_addresses(client, monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "x")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "y")
+    monkeypatch.setenv("REDIRECT_URI", "https://api.example/auth/callback")
+    r = client.get("/auth/login?app_redirect=https://evil.example/", follow_redirects=False)
+    assert r.status_code == 400
+    r = client.get("/auth/login?app_redirect=timeframe://auth", follow_redirects=False)
+    assert r.status_code in (302, 307) and "accounts.google.com" in r.headers["location"]

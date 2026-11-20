@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 from starlette.responses import RedirectResponse
 from app.availability import parse_event, find_free_time, PST
 from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, create_session_token,
-                            get_current_user, verify_oauth_state)
+                            get_current_user, oauth_state_app_redirect, safe_app_redirect, verify_oauth_state)
 from datetime import datetime, time, timedelta
 from app.db import conn
 from app.busy_store import insert_busy_rows
@@ -118,11 +118,15 @@ def event_key(event) -> tuple:
 
 
 @router.get("/auth/login")
-def login():
+def login(app_redirect: str | None = None):
     flow = get_flow()
     flow.redirect_uri = os.getenv("REDIRECT_URI")
 
-    state, nonce = create_oauth_state()
+    # From the phone app: hand the finished sign-in back to the app (see safe_app_redirect).
+    app_target = safe_app_redirect(app_redirect)
+    if app_redirect and not app_target:
+        raise HTTPException(status_code=400, detail="That app address isn't allowed.")
+    state, nonce = create_oauth_state(app_target)
     auth_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -136,10 +140,13 @@ def login():
 
 @router.get("/auth/callback")
 def callback(request: Request):
-    if not verify_oauth_state(request.query_params.get("state"), request.cookies.get(STATE_COOKIE)):
+    state = request.query_params.get("state")
+    if not verify_oauth_state(state, request.cookies.get(STATE_COOKIE)):
         return RedirectResponse(f"{FRONTEND_URL}/#auth_error=" + quote("Sign-in expired or was started elsewhere. Please try again."))
+    # Where the result goes: the website, or the phone app that started the sign-in.
+    back_to = oauth_state_app_redirect(state) or f"{FRONTEND_URL}/"
     if request.query_params.get("error"):
-        return RedirectResponse(f"{FRONTEND_URL}/#auth_error=" + quote("Google sign-in was cancelled."))
+        return RedirectResponse(f"{back_to}#auth_error=" + quote("Google sign-in was cancelled."))
 
     flow = get_flow()
     flow.redirect_uri = os.getenv("REDIRECT_URI")
@@ -151,7 +158,7 @@ def callback(request: Request):
     try:
         flow.fetch_token(authorization_response=callback_url)
     except Exception:
-        return RedirectResponse(f"{FRONTEND_URL}/#auth_error=" + quote("Google sign-in failed. Please try again."))
+        return RedirectResponse(f"{back_to}#auth_error=" + quote("Google sign-in failed. Please try again."))
     credentials = flow.credentials
 
     service = build("calendar", "v3", credentials=credentials)
@@ -219,7 +226,7 @@ def callback(request: Request):
     token = create_session_token(user_id)
     # In the #fragment, not the ?query: fragments are never sent to servers,
     # so the token doesn't land in Vercel's logs or Referer headers.
-    response = RedirectResponse(f"{FRONTEND_URL}/#user={quote(user_id)}&token={quote(token)}")
+    response = RedirectResponse(f"{back_to}#user={quote(user_id)}&token={quote(token)}")
     response.delete_cookie(STATE_COOKIE, path="/auth")
     return response
 

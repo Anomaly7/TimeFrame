@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>TimeFrame</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="logo"><img src="icons/logo.svg" alt="" /><span>TimeFrame</span></div>
+      <button id="open" class="ghost" title="Open TimeFrame">Open ↗</button>
+    </header>
+
+    <section id="signed-out" hidden>
+      <h1>Sign in to TimeFrame</h1>
+      <p class="muted">Sign in on the website once and the extension signs in with you.</p>
+      <button id="signin" class="primary">Sign in</button>
+    </section>
+
+    <section id="signed-in" hidden>
+      <div class="row">
+        <select id="group" aria-label="Whose calendars"></select>
+        <button id="copy-link" class="ghost small" hidden>Copy group link</button>
+      </div>
+      <h2>Best times this week</h2>
+      <ul id="slots" class="slots"></ul>
+      <p id="status" class="muted small"></p>
+      <footer class="foot">
+        <span id="who" class="muted small"></span>
+        <button id="signout" class="link small">Sign out</button>
+      </footer>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

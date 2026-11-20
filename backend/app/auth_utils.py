@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import secrets
 import threading
 import time
@@ -55,15 +56,47 @@ def get_current_user(authorization: str = Header(None)) -> str:
 
 # ---- OAuth state (stops login CSRF: someone else's Google callback being
 # replayed into your browser and signing you into their account) ----
-def create_oauth_state() -> tuple[str, str]:
+def create_oauth_state(app_redirect: str | None = None) -> tuple[str, str]:
     """Returns (state, nonce). The nonce goes in a cookie on the API domain;
-    the callback only accepts a state whose nonce matches that cookie."""
+    the callback only accepts a state whose nonce matches that cookie.
+    app_redirect (already checked with safe_app_redirect) sends the finished
+    sign-in back to the phone app instead of the website."""
     nonce = secrets.token_urlsafe(16)
-    state = jwt.encode(
-        {"nonce": nonce, "exp": int(time.time()) + OAUTH_STATE_TTL_SECONDS, "typ": "oauth_state"},
-        _secret(), algorithm=ALGORITHM,
-    )
+    payload = {"nonce": nonce, "exp": int(time.time()) + OAUTH_STATE_TTL_SECONDS, "typ": "oauth_state"}
+    if app_redirect:
+        payload["app"] = app_redirect
+    state = jwt.encode(payload, _secret(), algorithm=ALGORITHM)
     return state, nonce
+
+
+def oauth_state_app_redirect(state: str | None) -> str | None:
+    """The phone-app address stored in a (signature-checked) state, if any."""
+    try:
+        payload = jwt.decode(state or "", _secret(), algorithms=[ALGORITHM])
+    except jwt.PyJWTError:
+        return None
+    return safe_app_redirect(payload.get("app"))
+
+
+_PRIVATE_HOST = re.compile(
+    r"^(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$"
+)
+
+
+def safe_app_redirect(url: str | None) -> str | None:
+    """Only the TimeFrame app itself (timeframe://...) or Expo Go on a phone on
+    the same home network (exp://<private address>/...) may receive a session
+    token. Anything else - another app's scheme, a website, an Expo tunnel on
+    the internet - is refused, so a crafted sign-in link can't send someone's
+    token to a stranger."""
+    if not url or len(url) > 300 or "#" in url:
+        return None
+    if url.startswith("timeframe://"):
+        return url
+    m = re.match(r"^exp://([^/]+)(/.*)?$", url)
+    if m and _PRIVATE_HOST.match(m.group(1)):
+        return url
+    return None
 
 
 def verify_oauth_state(state: str | None, cookie_nonce: str | None) -> bool:

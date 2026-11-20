@@ -34,6 +34,9 @@ PRICES = {  # cents
     "year": int(os.getenv("PRO_PRICE_YEAR_CENTS", "2900")),
 }
 TRIAL_DAYS = int(os.getenv("PRO_TRIAL_DAYS", "7"))
+# Stripe tax category. Required when the Stripe account uses Managed Payments (Stripe handles sales tax):
+# txcd_10103000 = Software as a Service (SaaS), personal use.
+TAX_CODE = os.getenv("PRO_TAX_CODE", "txcd_10103000").strip()
 GRACE_SECONDS = 24 * 3600  # don't drop someone the minute a renewal is due
 ACTIVE = {"active", "trialing", "past_due"}
 
@@ -195,7 +198,7 @@ def start_checkout(body: dict = Body(default={}), user_id: str = Depends(get_cur
                 "currency": CURRENCY,
                 "unit_amount": PRICES[interval],
                 "recurring": {"interval": interval},
-                "product_data": {"name": "TimeFrame Pro"},
+                "product_data": {"name": "TimeFrame Pro", **({"tax_code": TAX_CODE} if TAX_CODE else {})},
             },
         }],
         "allow_promotion_codes": True,

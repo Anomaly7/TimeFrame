@@ -533,6 +533,16 @@ export default function App() {
           </div>
         </header>
 
+        {/* Public intro: what TimeFrame is, before anyone signs in (Google's verification asks for this). */}
+        <section className="landing-intro">
+          <p className="landing-title">Find a time that works for everyone.</p>
+          <p className="landing-sub">
+            TimeFrame reads when you're busy from Google Calendar, Apple Calendar, Notion or a calendar file, merges it
+            with your group's schedules and suggests the best meeting times. It only ever sees <em>when</em> you're busy,
+            never what your events are.
+          </p>
+        </section>
+
         <div className="login-card">
           <h2>Sign in to continue</h2>
           <p className="card-subtitle">
@@ -549,6 +559,20 @@ export default function App() {
             }}
           />
         </div>
+
+        <section className="landing-how">
+          <div><strong>1. Connect</strong><span>Google, Apple Calendar, Notion, a .ics file, or add busy times by hand.</span></div>
+          <div><strong>2. Share a link</strong><span>Friends or teammates join your group with one link.</span></div>
+          <div><strong>3. Pick a time</strong><span>TimeFrame ranks the free slots that suit everyone, with the best one crowned.</span></div>
+        </section>
+
+        <footer className="landing-footer">
+          <a href="/privacy.html">Privacy Policy</a>
+          <span aria-hidden="true">·</span>
+          <a href="/terms.html">Terms of Service</a>
+          <span aria-hidden="true">·</span>
+          <a href="mailto:sam.esebor@gmail.com">Contact</a>
+        </footer>
       </div>
     );
   }

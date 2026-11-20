@@ -116,6 +116,16 @@ if "plan" not in existing_user_columns:
     conn.execute("UPDATE users SET plan = 'pro', pro_source = 'early'")
     conn.commit()
 
+# One-time jobs that must never run twice (each name is recorded once it has run).
+conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)")
+conn.commit()
+# Sam, 2026-11-20 (reverses the early-supporter grant): nobody keeps Pro. Every account goes back to Free; Pro is
+# only the trial/checkout or the coupon from now on. Stripe ids are cleared too (they were test-mode ones).
+if not conn.execute("SELECT 1 FROM app_migrations WHERE name = 'reset_all_pro_2026_11_20'").fetchone():
+    conn.execute("UPDATE users SET plan = NULL, pro_source = NULL, stripe_customer = NULL, stripe_sub = NULL, pro_until = NULL")
+    conn.execute("INSERT INTO app_migrations (name) VALUES ('reset_all_pro_2026_11_20')")
+    conn.commit()
+
 conn.execute("""
 CREATE TABLE IF NOT EXISTS busy_times (
     id SERIAL PRIMARY KEY,

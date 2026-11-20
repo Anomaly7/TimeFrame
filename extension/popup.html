@@ -22,8 +22,17 @@
         <select id="group" aria-label="Whose calendars"></select>
         <button id="copy-link" class="ghost small" hidden>Copy group link</button>
       </div>
-      <h2>Best times this week</h2>
-      <ul id="slots" class="slots"></ul>
+      <div class="week-nav">
+        <button id="prev-week" class="ghost icon" aria-label="Previous week">&#8249;</button>
+        <span id="week-label">Next 7 days</span>
+        <button id="next-week" class="ghost icon" aria-label="Next week">&#8250;</button>
+      </div>
+      <div id="cal" class="cal"></div>
+      <div id="legend" class="legend"></div>
+      <div id="pick" class="pick" hidden>
+        <div><div id="pick-badge" class="badge"></div><div id="pick-when" class="pick-when"></div></div>
+        <button id="pick-copy" class="ghost">Copy</button>
+      </div>
       <p id="status" class="muted small"></p>
       <footer class="foot">
         <span id="who" class="muted small"></span>

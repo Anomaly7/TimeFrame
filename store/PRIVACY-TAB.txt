@@ -1,0 +1,38 @@
+TIMEFRAME - PRIVACY TAB (fill top to bottom, then Save draft)
+=============================================================
+
+SINGLE PURPOSE DESCRIPTION:
+Shows the user's best free meeting times from their TimeFrame account (and their TimeFrame groups) in a toolbar popup.
+
+
+STORAGE JUSTIFICATION:
+Keeps the user's TimeFrame sign-in token, display settings and selected group on the device so the popup stays signed in between uses.
+
+
+HOST PERMISSION JUSTIFICATION:
+calender-app-mm4q.onrender.com is the TimeFrame API, which the popup calls to load the user's free times, groups and name. The content script on timeframecalender.com (TimeFrame's own website) reads only the TimeFrame sign-in token and display settings so the extension signs in when the user signs in on the site. It runs on no other site.
+
+
+REMOTE CODE (if asked):   No, I am not using remote code
+
+
+DATA USAGE - tick ONLY these two:
+  [x] Personally identifiable information
+  [x] Authentication information
+  (everything else unticked)
+
+
+CERTIFY - tick all three:
+  [x] I do not sell or transfer user data to third parties...
+  [x] I do not use or transfer user data for purposes unrelated to my item's single purpose
+  [x] I do not use or transfer user data to determine creditworthiness or for lending purposes
+
+
+PRIVACY POLICY URL:
+https://www.timeframecalender.com/privacy.html
+
+
+THEN:
+  1. Save draft
+  2. Distribution tab: Free / Public / All regions -> Save draft
+  3. Submit for review

@@ -1,0 +1,89 @@
+TIMEFRAME - CHROME WEB STORE ANSWERS (copy and paste)
+=====================================================
+Files are in: C:\Users\sames\jarvis\projects\Calender-App\store
+(drag them from File Explorer onto the "Drop image here" boxes)
+
+
+---------------- STORE LISTING TAB ----------------
+
+DESCRIPTION (paste everything between the lines):
+-----
+TimeFrame finds a time that works for everyone. This extension puts your group's best free times one click away.
+
+• A mini week calendar: everyone's busy times in their own colour, with the best free slots highlighted in green and the top one crowned
+• Copy any time straight into a message, chat or email
+• Switch between "Just me" and any of your TimeFrame groups
+• Copy your group's invite link to add someone new
+• Open the full calendar at timeframecalender.com in one click
+
+How it works: sign in at timeframecalender.com (Google, Apple Calendar, Notion or email) and the extension signs in with you. TimeFrame only ever looks at when you're busy, never what your events are.
+
+Free. No ads. No tracking.
+-----
+
+CATEGORY:   Productivity  (pick "Workflow & Planning" if it asks for a sub-category)
+LANGUAGE:   English (United States)  - or English if that's the only English option
+
+
+GRAPHIC ASSETS
+  Store icon (128 x 128):
+      C:\Users\sames\jarvis\projects\Calender-App\extension\icons\icon-128.png
+  Global promo video:      leave blank
+  Screenshots (1280 x 800):
+      C:\Users\sames\jarvis\projects\Calender-App\store\screenshot-1280x800.png
+  Small promo tile (440 x 280):
+      C:\Users\sames\jarvis\projects\Calender-App\store\promo-tile-440x280.png
+  Marquee promo tile (1400 x 560):   leave blank (optional)
+
+
+ADDITIONAL FIELDS
+  Official URL:   pick  www.timeframecalender.com  from the dropdown
+                  (it's there because the site is verified in your Google Search Console;
+                   if the list is empty, leave it blank - it's optional)
+  Homepage URL:   https://www.timeframecalender.com
+  Support URL:    https://www.timeframecalender.com
+  Mature content: No
+
+Click SAVE DRAFT before switching tabs.
+
+
+---------------- PRIVACY TAB ----------------
+
+SINGLE PURPOSE:
+Shows the user's best free meeting times from their TimeFrame account (and their TimeFrame groups) in a toolbar popup.
+
+PERMISSION JUSTIFICATIONS
+  storage:
+Keeps the user's TimeFrame sign-in token, display settings and selected group on the device so the popup stays signed in between uses.
+
+  Host permission (calender-app-mm4q.onrender.com):
+The TimeFrame API, which the popup calls to load the user's free times, groups and name.
+
+  Content script / host (timeframecalender.com) - if it asks:
+Reads only the TimeFrame sign-in token and display settings from TimeFrame's own website, so the extension signs in when the user signs in on the site. It runs on no other site.
+
+ARE YOU USING REMOTE CODE?   No, I am not using remote code.
+
+DATA USAGE - tick ONLY these two:
+  [x] Personally identifiable information
+  [x] Authentication information
+  (leave every other box unticked)
+
+Tick all three certification boxes:
+  [x] I do not sell or transfer user data to third parties...
+  [x] I do not use or transfer user data for purposes unrelated to my item's single purpose
+  [x] I do not use or transfer user data to determine creditworthiness...
+
+PRIVACY POLICY URL:
+https://www.timeframecalender.com/privacy.html
+
+Click SAVE DRAFT.
+
+
+---------------- DISTRIBUTION TAB ----------------
+  Payments:     Free
+  Visibility:   Public   (or Unlisted to test with a link first)
+  Regions:      All regions
+
+Click SAVE DRAFT, then SUBMIT FOR REVIEW.
+Google usually reviews within a few days and emails sam.esebor@gmail.com.

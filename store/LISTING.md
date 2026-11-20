@@ -1,6 +1,6 @@
 # Chrome Web Store listing: TimeFrame (copy-paste sheet)
 
-Upload: `store/timeframe-extension-0.1.0.zip` (Developer Dashboard → New item).
+Upload: `store/timeframe-extension-0.1.1.zip` (Developer Dashboard → New item).
 
 ## Store listing tab
 
@@ -12,7 +12,7 @@ See the best times your group is free this week, right from your toolbar.
 **Description:**
 TimeFrame finds a time that works for everyone. This extension puts your group's best free times one click away.
 
-• Best times this week: the top free slots for you or your group, with the best one marked
+• A mini week calendar: everyone's busy times in their own colour, with the best free slots highlighted in green and the top one crowned
 • Copy any time straight into a message, chat or email
 • Switch between "Just me" and any of your TimeFrame groups
 • Copy your group's invite link to add someone new

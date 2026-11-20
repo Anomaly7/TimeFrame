@@ -37,3 +37,32 @@ select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border
 .empty { padding: 16px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
 .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
 #status:empty { display: none; }
+
+/* Mini week calendar (2026-11-20) */
+.week-nav { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; }
+.week-nav span { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.ghost.icon { width: 28px; height: 28px; padding: 0; font-size: 16px; line-height: 1; }
+.ghost.icon:disabled { opacity: 0.35; cursor: default; }
+.cal { display: grid; grid-template-columns: 22px repeat(7, 1fr); gap: 3px; }
+.cal-head { height: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.cal-head span { font-size: 10px; color: var(--muted); font-weight: 600; }
+.cal-head b { font-size: 12px; }
+.cal-day.today .cal-head b { color: #fff; background: var(--accent); border-radius: 999px; padding: 0 5px; }
+.cal-hours-body { position: relative; height: 250px; }
+.cal-hours-body span { position: absolute; right: 2px; transform: translateY(-50%); font-size: 9px; color: var(--muted); }
+.cal-track { position: relative; height: 250px; background: var(--muted-bg); border-radius: 6px; overflow: hidden;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px); background-size: 100% 12.5%; }
+.cal-busy { position: absolute; left: 2px; right: 2px; border-radius: 3px; background: color-mix(in srgb, var(--c) 28%, transparent);
+  border-left: 2px solid var(--c); }
+.cal-free { position: absolute; left: 1px; right: 1px; border-radius: 4px; border: 1.5px solid var(--good); background: var(--good-soft);
+  padding: 0; font-size: 10px; line-height: 1; cursor: pointer; z-index: 1; display: grid; place-items: center; }
+.cal-free:hover, .cal-free.selected { background: var(--good); color: #fff; box-shadow: 0 2px 8px -2px rgba(26,155,106,.7); }
+.cal-free.best { border-width: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 4px; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.legend i.free { background: var(--good-soft); border: 1.5px solid var(--good); }
+.pick { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 9px 10px;
+  border: 1px solid var(--border); border-radius: 10px; }
+.pick.best { border-color: var(--good); background: var(--good-soft); }
+.pick-when { font-weight: 600; font-size: 13px; }

@@ -116,6 +116,25 @@ if "plan" not in existing_user_columns:
     conn.execute("UPDATE users SET plan = 'pro', pro_source = 'early'")
     conn.commit()
 
+# When the account was made (unix seconds), for the owner's admin page. Accounts from before 2026-11-20 stay NULL
+# (unknown); new ones get it from the column default, so no sign-up code has to change.
+if "created_at" not in existing_user_columns:
+    conn.execute("ALTER TABLE users ADD COLUMN created_at BIGINT")
+    conn.execute("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM now()))::bigint")
+    conn.commit()
+
+# Owner admin page (admin.py): every sign-in attempt and change, kept for the audit trail and the lockouts.
+conn.execute("""
+CREATE TABLE IF NOT EXISTS admin_audit (
+    at BIGINT,
+    ip TEXT,
+    action TEXT,
+    detail TEXT
+)
+""")
+conn.execute("CREATE INDEX IF NOT EXISTS admin_audit_at ON admin_audit (at)")
+conn.commit()
+
 # One-time jobs that must never run twice (each name is recorded once it has run).
 conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)")
 conn.commit()

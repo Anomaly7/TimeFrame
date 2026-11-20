@@ -12,13 +12,14 @@ class FakeConn:
         self.db = sqlite3.connect(":memory:", check_same_thread=False)
         self.db.executescript("""
             CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, email_verified BOOLEAN DEFAULT FALSE, display_name TEXT,
-                                plan TEXT DEFAULT 'pro', pro_source TEXT DEFAULT 'early', stripe_customer TEXT, stripe_sub TEXT, pro_until BIGINT);
+                                plan TEXT DEFAULT 'pro', pro_source TEXT DEFAULT 'early', stripe_customer TEXT, stripe_sub TEXT, pro_until BIGINT, created_at BIGINT);
             CREATE TABLE busy_times (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, start TEXT, end_time TEXT,
                                      source TEXT, raw_timezone TEXT, title TEXT);
             CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT, owner TEXT, settings TEXT);
             CREATE TABLE group_bans (group_id TEXT, user_id TEXT);
             CREATE TABLE group_members (group_id TEXT, user_id TEXT);
             CREATE TABLE calendar_links (user_id TEXT, source TEXT);
+            CREATE TABLE admin_audit (at BIGINT, ip TEXT, action TEXT, detail TEXT);
         """)
 
     def execute(self, sql, params=()):

@@ -62,7 +62,6 @@ export default function SignInOptions({ notionAvailable, onAuthenticated }) {
       <button type="button" className="provider-btn" onClick={() => setOpen("email")}>
         <MailIcon /><span>Continue with email</span>
       </button>
-      <p className="provider-note">Signing in with a calendar also imports when you're busy. You can connect more calendars after.</p>
     </div>
   );
 }

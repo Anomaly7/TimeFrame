@@ -57,22 +57,36 @@
 }
 
 .login-gate {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 10vh;
+  justify-content: center;
+  padding: 2rem 1rem 0;
+  background: radial-gradient(1200px 500px at 50% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent), var(--bg, transparent);
 }
 
 .login-card {
-  max-width: 380px;
+  max-width: 400px;
   width: 100%;
+  margin: auto 0;
   text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2.2rem 2rem 2rem;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
+.login-brand { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; font-weight: 800; margin-bottom: 1.4rem; }
+.login-brand .brand-mark { font-size: 1.5rem; }
+.login-tagline { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 1.6rem; }
+
 .login-card h2 {
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.35rem;
 }
 
 .login-card .card-subtitle {
@@ -967,20 +981,11 @@
 .provider-btn:hover { border-color: var(--accent); background: var(--surface-muted); }
 .provider-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .provider-btn svg { position: absolute; left: 1rem; width: 20px; height: 20px; }
-.provider-note { margin: 0.4rem 0 0; color: var(--text-muted); font-size: 0.8rem; }
 .provider-form { text-align: left; }
 .link-back { background: none; border: none; padding: 0; margin: 0 0 0.75rem; color: var(--accent); font: inherit; font-size: 0.9rem; cursor: pointer; }
 .link-back:hover { text-decoration: underline; }
 
-/* Public intro, steps and footer on the sign-in page (2026-11-19). */
-.landing-intro { max-width: 560px; text-align: center; margin: 0 auto 1.4rem; padding: 0 1rem; }
-.landing-title { font-size: 1.6rem; font-weight: 800; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
-.landing-sub { color: var(--text-muted); margin: 0; line-height: 1.55; }
-.landing-how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; max-width: 720px; width: 100%; margin: 2rem auto 0; padding: 0 1rem; }
-.landing-how div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; }
-.landing-how strong { display: block; margin-bottom: 0.25rem; }
-.landing-how span { color: var(--text-muted); font-size: 0.88rem; }
-@media (max-width: 640px) { .landing-how { grid-template-columns: 1fr; } }
-.landing-footer { display: flex; gap: 0.6rem; justify-content: center; margin: 2rem 0 1.5rem; font-size: 0.85rem; color: var(--text-muted); }
+/* Sign-in page footer (2026-11-19). */
+.landing-footer { display: flex; gap: 1.4rem; justify-content: center; margin: 0; padding: 2rem 0 1.5rem; font-size: 0.85rem; color: var(--text-muted); }
 .landing-footer a { color: var(--text-muted); }
 .landing-footer a:hover { color: var(--accent); }

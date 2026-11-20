@@ -118,11 +118,24 @@ if "plan" not in existing_user_columns:
 
 # When the account was made (unix seconds), for the owner's admin page. Accounts from before 2026-11-20 stay NULL
 # (unknown); new ones get it from the column default, so no sign-up code has to change.
-# Not gated on existing_user_columns: that list also sees Supabase's own auth.users table, which already has a
-# created_at, so the column was never added (2026-11-20). Both statements are safe to run on every start.
-conn.execute("ALTER TABLE public.users ADD COLUMN IF NOT EXISTS created_at BIGINT")
-conn.execute("ALTER TABLE public.users ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM now()))::bigint")
-conn.commit()
+# (existing_user_columns only looks at public.users since 2026-11-20; before that it also saw Supabase's auth.users,
+# which has its own created_at, so the column was never added.) Only touched when missing: an ALTER needs an exclusive
+# lock, which waits behind the still-running old server during a deploy and made two deploys fail at startup. A failure
+# here is logged, never fatal.
+if "created_at" not in existing_user_columns:
+    try:
+        conn.execute("SET lock_timeout = '5s'")
+        conn.execute("ALTER TABLE public.users ADD COLUMN IF NOT EXISTS created_at BIGINT")
+        conn.execute("ALTER TABLE public.users ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM now()))::bigint")
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Could not add users.created_at yet (will retry next start): {e}")
+    finally:
+        try:
+            conn.execute("RESET lock_timeout")
+            conn.commit()
+        except psycopg2.Error:
+            pass
 
 # Owner admin page (admin.py): every sign-in attempt and change, kept for the audit trail and the lockouts.
 conn.execute("""

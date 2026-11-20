@@ -50,7 +50,6 @@ $("loginForm").addEventListener("submit", async (e) => {
   } finally { $("loginBtn").disabled = false; }
 });
 $("logout").addEventListener("click", async () => { try { await api("logout", {}); } catch { /* fine */ } showLogin(""); });
-$("refresh").addEventListener("click", () => start());
 
 // ---- overview + health ----
 async function loadOverview() {

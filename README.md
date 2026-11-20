@@ -40,7 +40,7 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 - The app shows nothing (no data, no UI) until you're signed in
 
 ### Calendar Sources
-- **Google Calendar** — a full year of events from every calendar shown in your Google Calendar (classes, work, personal...), synced automatically on connect; holiday and birthday calendars are skipped
+- **Google Calendar** — a full year of events from every calendar shown in your Google Calendar (classes, work, personal...), synced automatically on connect; holiday and birthday calendars and all-day events are skipped
 - **Apple Calendar** — every iCloud calendar (not Reminders), a year ahead, via CalDAV with your Apple ID email and an app-specific password; the password is used once for the import and never stored. Events marked "Free" are skipped
 - **Notion** — sign in with Notion or connect it to your account; imports pages with a date-and-time property from the databases you share with TimeFrame (date-only entries such as deadlines aren't busy time; a start with no end counts as 1 hour). The Notion token is used once and never stored
 - **.ics import** — upload one or more files exported from Outlook, Apple Calendar, or any other app

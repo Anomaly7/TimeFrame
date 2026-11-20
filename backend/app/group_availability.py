@@ -3,7 +3,7 @@ import re
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from datetime import datetime, time, timedelta
-from app.availability import merge_intervals, find_free_time, score_slot, parse_prefer
+from app.availability import merge_intervals, find_free_time, score_slot, parse_prefer, is_all_day_block
 from app.auth_utils import get_current_user
 from app.db import conn
 from app.busy_store import insert_busy_rows
@@ -222,6 +222,10 @@ def merge_users_availability(
         ).fetchall()
 
         for start, end, source, raw_timezone in rows:
+            # All-day calendar events (birthdays, "Exam week", holidays...) don't block time (Sam, 2026-11-20).
+            # Imports skip them now; this also hides ones saved before that. Hand-made blocks are always kept.
+            if source != "manual" and is_all_day_block(start, end):
+                continue
             start_dt = datetime.fromisoformat(start).astimezone(viewer_tz)
             end_dt = datetime.fromisoformat(end).astimezone(viewer_tz)
 

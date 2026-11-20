@@ -4,6 +4,17 @@ from zoneinfo import ZoneInfo
 
 PST = ZoneInfo("America/Los_Angeles")
 
+def is_all_day_block(start_iso: str, end_iso: str) -> bool:
+    """A saved busy block that is really an all-day event: midnight to midnight (in the time zone it was
+    saved in), a whole number of days long."""
+    try:
+        s, e = datetime.fromisoformat(start_iso), datetime.fromisoformat(end_iso)
+    except (TypeError, ValueError):
+        return False
+    whole_days = e > s and (e - s).total_seconds() % 86400 == 0
+    return whole_days and s.time() == e.time() == datetime.min.time()
+
+
 def parse_event(event):
     start = event["start"]
     end = event["end"]

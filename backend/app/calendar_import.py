@@ -46,6 +46,9 @@ def event_rows(events, user_id: str, source: str, skip_free: bool = False) -> li
                           or str(event.get("status", "")).upper() == "CANCELLED"):
             continue
         raw_start = event.get("dtstart").dt
+        # All-day events (a bare date, no time) don't block time (Sam, 2026-11-20).
+        if isinstance(raw_start, date) and not isinstance(raw_start, datetime):
+            continue
         # DTEND is optional in .ics: fall back to DURATION, then to the start
         # (a one-day block for all-day events, a zero-length one otherwise).
         if event.get("dtend") is not None:

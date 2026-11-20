@@ -89,12 +89,13 @@ def test_blocks_only_say_whose_they_are(client):
 
 def test_free_declined_and_working_location_events_dont_block_time(client):
     from app.google_auth import blocks_time
-    assert blocks_time({"start": {}, "end": {}})
+    assert blocks_time({"start": {"dateTime": "2031-01-01T10:00:00-07:00"}, "end": {"dateTime": "2031-01-01T11:00:00-07:00"}})
+    assert not blocks_time({"start": {"date": "2031-01-01"}, "end": {"date": "2031-01-02"}})  # all-day
     assert not blocks_time({"transparency": "transparent"})
     assert not blocks_time({"eventType": "workingLocation"})
     assert not blocks_time({"attendees": [{"self": True, "responseStatus": "declined"}]})
-    assert blocks_time({"attendees": [{"responseStatus": "declined"}, {"self": True, "responseStatus": "accepted"}]})
-    assert blocks_time({"eventType": "focusTime", "transparency": "opaque"})
+    assert blocks_time({"start": {"dateTime": "2031-01-01T10:00:00-07:00"}, "attendees": [{"responseStatus": "declined"}, {"self": True, "responseStatus": "accepted"}]})
+    assert blocks_time({"start": {"dateTime": "2031-01-01T10:00:00-07:00"}, "eventType": "focusTime", "transparency": "opaque"})
 
 
 def test_a_plain_refresh_never_wipes_saved_manual_blocks(client):

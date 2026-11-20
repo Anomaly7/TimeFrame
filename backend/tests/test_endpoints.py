@@ -112,7 +112,7 @@ def test_ics_without_dtend_is_imported_not_a_crash(client):
            "END:VCALENDAR\r\n")
     r = client.post("/import/ics", files={"file": ("cal.ics", ics, "text/calendar")}, headers=h)
     assert r.status_code == 200, r.text
-    assert r.json()["imported"] == 2
+    assert r.json()["imported"] == 1  # the all-day event is skipped (2026-11-20)
 
 
 def test_cors_only_allows_the_real_frontend(client):
@@ -156,3 +156,23 @@ def test_google_login_refuses_unknown_app_addresses(client, monkeypatch):
     assert r.status_code == 400
     r = client.get("/auth/login?app_redirect=timeframe://auth", follow_redirects=False)
     assert r.status_code in (302, 307) and "accounts.google.com" in r.headers["location"]
+
+
+def test_all_day_blocks_dont_count_but_manual_ones_do(client):
+    from app.availability import is_all_day_block
+    assert is_all_day_block("2031-01-01T00:00:00-08:00", "2031-01-02T00:00:00-08:00")
+    assert is_all_day_block("2031-01-01T00:00:00-08:00", "2031-01-04T00:00:00-08:00")
+    assert not is_all_day_block("2031-01-01T09:00:00-08:00", "2031-01-01T10:00:00-08:00")
+    assert not is_all_day_block("2031-01-01T00:00:00-08:00", "2031-01-01T12:00:00-08:00")
+    h = signup(client, "ad@example.com")
+    from datetime import date, timedelta
+    d = date.today() + timedelta(days=2)
+    day0, day1 = f"{d.isoformat()}T00:00:00-08:00", f"{(d + timedelta(days=1)).isoformat()}T00:00:00-08:00"
+    # An all-day Google row saved before the change is hidden from the merge...
+    client.fake.execute("INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES (?, ?, ?, 'google', 'UTC', NULL)",
+                        ("ad@example.com", day0, day1))
+    client.fake.execute("INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES (?, ?, ?, 'google', 'UTC', NULL)",
+                        ("ad@example.com", f"{d.isoformat()}T10:00:00-08:00", f"{d.isoformat()}T11:00:00-08:00"))
+    r = client.post("/availability/merge?days=7&start_offset=0&timezone=America/Vancouver&keep_manual=1", json=[], headers=h)
+    starts = [b["start"] for b in r.json()["busy_times"]]
+    assert len(starts) == 1  # only the 10-11 AM block; the all-day one is gone

@@ -51,6 +51,9 @@ def blocks_time(event) -> bool:
         return False
     if event.get("eventType") == "workingLocation":
         return False
+    # All-day events (no time of day) don't block time (Sam, 2026-11-20).
+    if "dateTime" not in (event.get("start") or {}):
+        return False
     for attendee in event.get("attendees") or []:
         if attendee.get("self") and attendee.get("responseStatus") == "declined":
             return False

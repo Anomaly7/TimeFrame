@@ -1281,3 +1281,8 @@
 @media (max-width: 640px) {
   .dash-range h1 { font-size: 1.5rem; }
 }
+
+/* Apple Calendar: the app-specific password how-to stays visible everywhere, including the sidebar (2026-11-20). */
+.apple-help { color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; margin: 0 0 0.7rem; }
+.apple-help strong { color: var(--text); }
+.apple-help a { color: var(--accent); font-weight: 600; }

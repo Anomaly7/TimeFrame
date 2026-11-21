@@ -6,6 +6,8 @@ import { getToken } from "../session";
 // calendars are read with your Apple ID email plus an app-specific password.
 // The password is used once for this import and never saved.
 // On the sign-in page (signedIn = false) it signs in with the Apple ID instead and hands the session to onAuthenticated.
+// The password box uses autocomplete="new-password": with "off", Chrome filled in a saved password, which
+// Apple always rejects (it needs an app-specific one). The how-to text is always visible (2026-11-20).
 // bare: just the form, already open (used inside the sign-in page's options panel; Cancel calls onCancel).
 export default function AppleConnect({ connected, onChanged, signedIn = true, onAuthenticated, bare = false, onCancel }) {
   const [open, setOpen] = useState(bare);
@@ -59,7 +61,7 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
       <div className="apple-bare">
         {open && (
           <form className="email-auth" onSubmit={connect}>
-            <p className="card-subtitle">
+            <p className="apple-help">
               Sign in with your Apple ID email and an <strong>app-specific password</strong> (not your normal
               Apple password). Make one at{" "}
               <a href="https://account.apple.com/account/manage" target="_blank" rel="noreferrer">account.apple.com</a>{" "}
@@ -70,7 +72,7 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
               <input
                 type="email"
                 placeholder="Apple ID email"
-                autoComplete="username"
+                autoComplete="email"
                 value={appleId}
                 onChange={(e) => setAppleId(e.target.value)}
                 required
@@ -78,7 +80,8 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
               <input
                 type="password"
                 placeholder="App-specific password (xxxx-xxxx-xxxx-xxxx)"
-                autoComplete="off"
+                name="apple-app-specific-password"
+              autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -125,7 +128,7 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
 
       {open && (
         <form className="email-auth" onSubmit={connect}>
-          <p className="card-subtitle">
+          <p className="apple-help">
             Sign in with your Apple ID email and an <strong>app-specific password</strong> (not your normal
             Apple password). Make one at{" "}
             <a href="https://account.apple.com/account/manage" target="_blank" rel="noreferrer">account.apple.com</a>{" "}
@@ -136,7 +139,7 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
             <input
               type="email"
               placeholder="Apple ID email"
-              autoComplete="username"
+              autoComplete="email"
               value={appleId}
               onChange={(e) => setAppleId(e.target.value)}
               required
@@ -144,7 +147,8 @@ export default function AppleConnect({ connected, onChanged, signedIn = true, on
             <input
               type="password"
               placeholder="App-specific password (xxxx-xxxx-xxxx-xxxx)"
-              autoComplete="off"
+              name="apple-app-specific-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

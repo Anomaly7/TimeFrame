@@ -234,9 +234,6 @@ export default function CalendarView({
 
   return (
     <div className="card">
-      <div className="card-title">
-        <h2>Calendar</h2>
-      </div>
 
       {/* --cols lets the phone layout give each day a readable width and scroll sideways */}
       <div className={`calendar ${mode === "week" ? "is-week" : ""}`} style={{ "--cols": dates.length }}>

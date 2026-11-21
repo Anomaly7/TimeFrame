@@ -142,13 +142,6 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
 
   return (
     <div className="card groups-panel">
-      <div className="card-title">
-        <h2>My groups</h2>
-      </div>
-      <p className="card-subtitle">
-        Share a group's link: everyone who opens it and signs in sees each other's busy times. Each link stays live.
-      </p>
-
       <form className="groups-new" onSubmit={createGroup}>
         <input
           className="activity-name-input"

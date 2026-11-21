@@ -453,8 +453,7 @@ export default function App() {
   }, [email]);
 
   const isPro = !!billing?.pro;
-  const proLabel = !billing?.pro ? "" : billing.source === "early" ? "Early supporter"
-    : billing.source === "coupon" ? "Coupon" : billing.trial ? "Free trial" : "";
+  const proLabel = !billing?.pro ? "" : billing.source === "coupon" ? "Coupon" : billing.trial ? "Free trial" : "";
 
   // Busy/free times are scoped server-side, so cached results from a
   // previous visit (or an earlier day) are stale as soon as the page
@@ -670,7 +669,9 @@ export default function App() {
   }
 
   const displayName = myName || email;
-  const activeGroupName = activeGroup ? (activeGroup.name || "Group") : "Just me";
+  const firstName = (myName || email.split("@")[0]).trim().split(/[\s._-]+/)[0];
+  const hour = new Date().getHours();
+  const greeting = `${hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"}, ${firstName.charAt(0).toUpperCase() + firstName.slice(1)}`;
 
   return (
     <div className="dash">
@@ -680,9 +681,6 @@ export default function App() {
           <img src="/favicon.svg" alt="" />
           <span>TimeFrame</span>
         </div>
-        <span className="dash-viewing" title="Whose calendars you're looking at">
-          <span className="dash-viewing-dot" />{activeGroupName}
-        </span>
         <div className="dash-user">
           {editingName ? (
             <form className="user-chip name-form" onSubmit={saveName}>
@@ -730,7 +728,6 @@ export default function App() {
                 {billing?.can_manage && (
                   <button role="menuitem" onClick={() => { setMenuOpen(false); openBillingPortal(); }}>Manage billing</button>
                 )}
-                <button role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
                 <button role="menuitem" onClick={() => { setMenuOpen(false); clearAll(); }}>Clear my schedule</button>
                 <hr />
                 <button role="menuitem" className="danger" onClick={() => { setMenuOpen(false); logout(); }}>Sign out</button>
@@ -760,8 +757,8 @@ export default function App() {
         <main className="dash-main">
           <div className="dash-toolbar">
             <div className="dash-range">
+              <span className="dash-greeting">{greeting}{activeGroup ? ` · ${activeGroup.name || "Group"}` : ""}</span>
               <h1>{formatRangeLabel(viewMode, viewDate)}</h1>
-              <span className="dash-tz">Times in {MY_TIMEZONE}</span>
             </div>
             <div className="dash-controls">
               <div className="seg">
@@ -867,7 +864,6 @@ export default function App() {
             <AvailabilityForm
               manualBusy={manualBusy}
               setManualBusy={setManualBusy}
-              onSubmit={(blocks) => fetchAvailability(blocks, { save: true })}
             />
           </section>
         </aside>

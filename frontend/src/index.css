@@ -1,26 +1,27 @@
 :root {
-  --bg: #f5f6fa;
+  /* 2026-11-20 restyle (Sam): soft periwinkle canvas, white cards, deep indigo accent, like the sign-in page. */
+  --bg: #eef0fb;
   --surface: #ffffff;
-  --surface-muted: #f1f2f8;
-  --border: #e2e4ee;
-  --text: #1b1d29;
-  --text-muted: #676b83;
-  --accent: #5b5ff0;
-  --accent-hover: #4a4dd6;
-  --accent-soft: #eeeeff;
-  --accent-translucent: rgba(91, 95, 240, 0.16);
+  --surface-muted: #f4f5fc;
+  --border: #e6e8f4;
+  --text: #14152b;
+  --text-muted: #6b6f8c;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #ecebff;
+  --accent-translucent: rgba(79, 70, 229, 0.16);
   --danger: #e5484d;
   --danger-soft: #fdeceb;
   --success: #1a9b6a;
   --success-soft: #e7f7f0;
-  --shadow: 0 1px 2px rgba(20, 21, 41, 0.04), 0 8px 24px rgba(20, 21, 41, 0.06);
-  --radius: 12px;
-  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(30, 27, 75, 0.04), 0 12px 32px -10px rgba(30, 27, 75, 0.12);
+  --radius: 16px;
+  --radius-sm: 10px;
 
   /* Timeline: translucent fills with a solid left border and matching
      text color (Apple Calendar-style) - deliberately separate from the
      semantic danger/success/accent tokens used elsewhere in the UI. */
-  --grid-line: #d5d8e6;
+  --grid-line: #e2e5f2;
   --tl-busy: #d1373d;
   --tl-busy-bg: rgba(229, 72, 77, 0.14);
   --tl-best: #158a5c;

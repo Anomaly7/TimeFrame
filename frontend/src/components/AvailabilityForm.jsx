@@ -24,16 +24,12 @@ function formatLocal(datetimeLocalValue) {
   });
 }
 
-export default function AvailabilityForm({
-  manualBusy,
-  setManualBusy,
-  onSubmit
-}) {
+// Adding or removing a block saves it right away (App.jsx), which also refreshes the free times.
+export default function AvailabilityForm({ manualBusy, setManualBusy }) {
   const [startDate, setStartDate] = useState(todayLocal());
   const [startTime, setStartTime] = useState("09:00");
   const [endDate, setEndDate] = useState(todayLocal());
   const [endTime, setEndTime] = useState("10:00");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   function addBusy() {
@@ -55,26 +51,8 @@ export default function AvailabilityForm({
     setManualBusy(manualBusy.filter((_, i) => i !== index));
   }
 
-  async function submit() {
-    setLoading(true);
-    setError("");
-
-    try {
-      await onSubmit(manualBusy);
-    } catch (err) {
-      console.error(err);
-      setError("Something went wrong. Is the backend running?");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="card">
-      <div className="card-title">
-        <h2>Manual Busy Times</h2>
-      </div>
-
       <div className="datetime-row">
         <div className="datetime-group">
           <input
@@ -96,17 +74,13 @@ export default function AvailabilityForm({
       </div>
 
       <div className="form-actions">
-        <button className="btn-ghost" onClick={addBusy}>Add Busy Slot</button>
-        <button className="btn btn-primary" onClick={submit} disabled={loading}>
-          {loading && <span className="spinner" />}
-          {loading ? "Finding..." : "Find Free Time"}
-        </button>
+        <button className="btn btn-primary" onClick={addBusy}>Add busy time</button>
       </div>
 
       {error && <p className="error-text">{error}</p>}
 
       {manualBusy.length === 0 ? (
-        <p className="empty-state">No manual busy times added yet.</p>
+        <p className="empty-state">Nothing added yet. Busy times you add here show up for your groups too.</p>
       ) : (
         <ul className="chip-list">
           {manualBusy.map((b, i) => (

@@ -83,10 +83,6 @@ export default function MonthView({
 
   return (
     <div className="card">
-      <div className="card-title">
-        <h2>{anchor.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</h2>
-      </div>
-
       <div className="month-grid">
         {WEEKDAY_LABELS.map((label) => (
           <div className="month-weekday-label" key={label}>{label}</div>

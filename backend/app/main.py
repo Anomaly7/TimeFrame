@@ -43,9 +43,15 @@ async def mark_request(request: Request, call_next):
     # Lets the database layer drop anything a previous request left unfinished.
     token = current_request.set(object())
     try:
-        return await call_next(request)
+        response = await call_next(request)
     finally:
         current_request.reset(token)
+    # Safe defaults on every answer (the admin page sets stricter ones of its own): browsers must not guess file
+    # types, nothing may show the API inside a frame, and links out never carry the address.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
 
 app.include_router(group_router)
 app.include_router(google_router)

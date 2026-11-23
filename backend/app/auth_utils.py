@@ -5,6 +5,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 from collections import defaultdict, deque
 
 import jwt
@@ -139,6 +140,32 @@ class RateLimiter:
                     raise HTTPException(status_code=429, detail="Too many attempts. Wait a few minutes and try again.")
             for key in keys:
                 self._hits[key].append(now)
+
+    def _recent(self, key: str, now: float) -> deque:
+        hits = self._hits[key]
+        while hits and hits[0] < now - self.window:
+            hits.popleft()
+        return hits
+
+    def over(self, key: str) -> bool:
+        """True once `key` has used up its attempts in the window (checks without counting one)."""
+        with self._lock:
+            return len(self._recent(key, time.time())) >= self.max_attempts
+
+    def record(self, key: str) -> int:
+        """Counts one attempt for `key`; returns how many there are in the window now."""
+        with self._lock:
+            hits = self._recent(key, time.time())
+            hits.append(time.time())
+            return len(hits)
+
+
+def clean_text(value, max_len: int) -> str:
+    """A name someone typed, made safe to show other people: single spaces, no control or invisible characters
+    (zero-width spaces, right-to-left overrides that make "evil.exe" read as "exe.live"), at most max_len characters.
+    React already escapes it, so this is about spoofing and junk, not scripts."""
+    text = "".join(ch for ch in str(value or "") if unicodedata.category(ch) not in ("Cc", "Cf", "Co", "Cs"))
+    return " ".join(text.split())[:max_len]
 
 
 def client_ip(request: Request) -> str:

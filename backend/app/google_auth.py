@@ -10,7 +10,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from starlette.responses import RedirectResponse
 from app.availability import parse_event, find_free_time, PST
-from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, create_session_token,
+from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, clean_text, create_session_token,
                             get_current_user, oauth_state_app_redirect, safe_app_redirect, verify_oauth_state)
 from datetime import datetime, time, timedelta
 from app.db import conn
@@ -283,7 +283,7 @@ def me(user_id: str = Depends(get_current_user)):
 def set_name(body: dict = Body(...), user_id: str = Depends(get_current_user)):
     """The name group members see on your blocks. Blank = back to the
     default (the part of your email before the @)."""
-    name = " ".join(str(body.get("name") or "").split())[:40]
+    name = clean_text(body.get("name"), 40)
     conn.execute("UPDATE users SET display_name = ? WHERE id = ?", (name or None, user_id))
     conn.commit()
     return {"name": name or default_name(user_id), "custom_name": bool(name)}

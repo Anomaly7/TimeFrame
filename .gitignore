@@ -18,3 +18,8 @@ frontend/dist/
 .pytest_cache/
 
 backend/.venv-test/
+
+# Local files in store/ that must never reach this PUBLIC repo (homework, build zips, scratch images)
+store/*.pdf
+store/*.zip
+store/_*

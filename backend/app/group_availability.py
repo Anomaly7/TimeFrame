@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from datetime import datetime, time, timedelta
 from app.availability import merge_intervals, find_free_time, score_slot, parse_prefer, is_all_day_block
-from app.auth_utils import get_current_user
+from app.auth_utils import RateLimiter, clean_text, client_ip, get_current_user
 from app.db import conn
 from app.busy_store import insert_busy_rows
 
@@ -15,6 +15,9 @@ PST = ZoneInfo("America/Los_Angeles")
 # be UUIDs. Anything else is rejected.
 GROUP_ID_RE = re.compile(r"^[A-Za-z0-9-]{6,64}$")
 MAX_BLOCKS = 1000
+# Joining with a made-up code is how someone would hunt for other people's groups: 30 tries per 10 minutes per
+# account and per address is plenty for real use (codes are 8 random characters, ~10^12 possibilities).
+join_limiter = RateLimiter(max_attempts=30, window_seconds=600)
 
 
 def same_user(a, b) -> bool:
@@ -133,21 +136,25 @@ def merge_users_availability(
 
     for user in users_busy:
 
-        if isinstance(user, dict):
-            user = [[user["start"], user["end"]]]
+        try:
+            if isinstance(user, dict):
+                user = [[user["start"], user["end"]]]
+            if not isinstance(user, list):
+                raise TypeError
+        except (KeyError, TypeError):
+            raise HTTPException(status_code=400, detail="Busy times must be ISO date-times.")
 
         for block in user:
 
-            if isinstance(block, dict):
-                # Any "title" a client sends is ignored: only the time is kept.
-                start, end = block["start"], block["end"]
-            else:
-                start, end = block
-
             try:
+                if isinstance(block, dict):
+                    # Any "title" a client sends is ignored: only the time is kept.
+                    start, end = block["start"], block["end"]
+                else:
+                    start, end = block
                 start_dt = datetime.fromisoformat(start)
                 end_dt = datetime.fromisoformat(end)
-            except (TypeError, ValueError):
+            except (KeyError, TypeError, ValueError):
                 raise HTTPException(status_code=400, detail="Busy times must be ISO date-times.")
 
             # A naive value (e.g. from the manual-entry form) means "in the
@@ -315,17 +322,19 @@ def my_manual_blocks(user_id: str = Depends(get_current_user)):
 
 
 def clean_group_name(name) -> str | None:
-    return " ".join(str(name or "").split())[:60] or None
+    return clean_text(name, 60) or None
 
 
 @router.post("/groups/join")
 def join_group(
+    request: Request,
     group_id: str = Query(...),
     name: str = Query(None),
     user_id: str = Depends(get_current_user),
 ):
     """Joins (or, for a new id, creates) a group. `name` only applies when
     the group is new - joining someone's link never renames their group."""
+    join_limiter.check("user:" + user_id.strip().lower(), "ip:" + client_ip(request))
     if not GROUP_ID_RE.match(group_id):
         raise HTTPException(status_code=400, detail="That group link isn't valid.")
     banned = conn.execute(

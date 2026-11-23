@@ -20,9 +20,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.auth_utils import RateLimiter, get_current_user
+from app.auth_utils import RateLimiter, client_ip, get_current_user
 from app.db import conn
 
 router = APIRouter()
@@ -45,7 +45,27 @@ COLLECT_TAX = os.getenv("PRO_COLLECT_TAX", "").strip().lower() in ("1", "true", 
 GRACE_SECONDS = 24 * 3600  # don't drop someone the minute a renewal is due
 ACTIVE = {"active", "trialing", "past_due"}
 
-coupon_limiter = RateLimiter(max_attempts=8, window_seconds=3600)
+coupon_limiter = RateLimiter(max_attempts=8, window_seconds=3600)  # per account and per address
+# Across ALL accounts: someone making lots of accounts to guess the code. 40 wrong codes in an hour closes coupon
+# redemption for everyone for the rest of that hour, and Sam's phone is alerted once.
+coupon_wrong_total = RateLimiter(max_attempts=40, window_seconds=3600)
+_coupon_lock_alerted = {"at": 0.0}
+
+
+def _alert_owner(message: str):
+    try:
+        from app.admin import alert
+        alert(message)
+    except Exception:
+        pass
+
+
+def _coupon_cap() -> int:
+    """Optional cap on how many accounts can use the coupon (TIMEFRAME_COUPON_MAX in Render; unset or 0 = no cap)."""
+    try:
+        return max(0, int(os.getenv("TIMEFRAME_COUPON_MAX", "0") or 0))
+    except ValueError:
+        return 0
 
 
 class StripeError(Exception):
@@ -175,16 +195,27 @@ def billing_status(user_id: str = Depends(get_current_user)):
 
 
 @router.post("/billing/redeem")
-def redeem_coupon(body: dict = Body(...), user_id: str = Depends(get_current_user)):
-    """The one coupon: Pro for free, no card."""
-    coupon_limiter.check("coupon:" + user_id)
+def redeem_coupon(request: Request, body: dict = Body(...), user_id: str = Depends(get_current_user)):
+    """The one coupon: Pro for free, no card. Using it again on the same account changes nothing."""
+    if coupon_wrong_total.over("all"):
+        raise HTTPException(status_code=429, detail="Coupon codes are paused for a while. Try again later.")
+    coupon_limiter.check("coupon:" + user_id, "ip:" + client_ip(request))
     code = str(body.get("code") or "").strip().upper()
     real = os.getenv("TIMEFRAME_COUPON", "").strip().upper()
-    if not real or not code or not hmac.compare_digest(code, real):
+    if not real or not code or not hmac.compare_digest(code.encode(), real.encode()):
+        if real and code and coupon_wrong_total.record("all") >= coupon_wrong_total.max_attempts                 and time.time() - _coupon_lock_alerted["at"] > 3600:
+            _coupon_lock_alerted["at"] = time.time()
+            _alert_owner("TimeFrame: 40 wrong coupon codes in an hour. Coupon redemption is paused for an hour.")
         raise HTTPException(status_code=400, detail="That coupon code isn't valid.")
     row = _row(user_id)
+    if row and row[0] == "pro" and row[1] == "coupon":
+        return {"pro": True, "source": "coupon", "still_paying": False}  # already redeemed: nothing to do
+    cap = _coupon_cap()
+    if cap and conn.execute("SELECT COUNT(*) FROM users WHERE pro_source = 'coupon'").fetchone()[0] >= cap:
+        raise HTTPException(status_code=400, detail="That coupon has been used up.")
     still_paying = bool(row and row[1] == "stripe" and row[3] and is_pro(user_id))
     _set(user_id, plan="pro", pro_source="coupon")
+    _alert_owner(f"TimeFrame: coupon redeemed by {user_id}.")
     return {"pro": True, "source": "coupon", "still_paying": still_paying}
 
 

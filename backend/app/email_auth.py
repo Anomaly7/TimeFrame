@@ -12,6 +12,9 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # 10 tries per 10 minutes per IP and per email address.
 auth_limiter = RateLimiter(max_attempts=10, window_seconds=600)
+# New password accounts across the whole site: stops someone scripting thousands of accounts (each one would get a
+# free trial and fresh coupon/login attempts). Far above real sign-up traffic.
+signup_total = RateLimiter(max_attempts=60, window_seconds=3600)
 
 
 def _check_password_rules(password: str) -> None:
@@ -31,6 +34,7 @@ def signup(request: Request, body: dict = Body(...)):
     if len(email) > 254 or not EMAIL_RE.match(email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
     _check_password_rules(password)
+    signup_total.check("all")
 
     existing = conn.execute("SELECT id FROM users WHERE id = ?", (email,)).fetchone()
     if existing:

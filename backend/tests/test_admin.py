@@ -155,3 +155,52 @@ def test_an_invalid_authenticator_key_keeps_the_page_off(client, monkeypatch):
     monkeypatch.setenv("ADMIN_PASSWORD", PW)
     monkeypatch.setenv("ADMIN_TOTP_SECRET", "not a key!")
     assert client.get("/admin").status_code == 404
+
+
+def test_delete_account_wipes_data_and_old_sessions(admin, client, monkeypatch):
+    monkeypatch.setattr("app.admin.alert", lambda m: None)
+    gone = signup(client, "gone@example.com")
+    other = signup(client, "other@example.com")
+    client.post("/groups/join?group_id=Shar2345&name=Shared", headers=gone)
+    client.post("/groups/join?group_id=Shar2345", headers=other)
+    client.post("/groups/join?group_id=Solo2345", headers=gone)
+    client.fake.execute("INSERT INTO busy_times (user_id, start, end_time, source) VALUES ('gone@example.com', 'a', 'b', 'manual')")
+    client.fake.commit()
+    assert login(admin).status_code == 200
+    r = admin.post("/admin/api/users/delete", json={"id": "gone@example.com"}, headers=H)
+    assert r.status_code == 200, r.text
+    f = client.fake
+    assert not f.execute("SELECT 1 FROM users WHERE id = 'gone@example.com'").fetchone()
+    assert not f.execute("SELECT 1 FROM busy_times WHERE user_id = 'gone@example.com'").fetchone()
+    assert not f.execute("SELECT 1 FROM group_members WHERE user_id = 'gone@example.com'").fetchone()
+    assert not f.execute("SELECT 1 FROM groups WHERE id = 'Solo2345'").fetchone()  # empty group removed
+    assert f.execute("SELECT owner FROM groups WHERE id = 'Shar2345'").fetchone()[0] is None  # others keep it, claimable
+    # The old session no longer works...
+    assert client.get("/groups", headers=gone).status_code == 401
+    # ...but they can sign up again as a brand-new, empty account.
+    fresh = signup(client, "gone@example.com")
+    assert client.get("/groups", headers=fresh).json()["groups"] == []
+    assert client.get("/groups", headers=gone).status_code == 401
+    assert "delete_account" in [e["action"] for e in admin.get("/admin/api/audit", headers=H).json()["events"]]
+
+
+def test_banned_email_cannot_sign_in_or_up_until_unbanned(admin, client, monkeypatch):
+    monkeypatch.setattr("app.admin.alert", lambda m: None)
+    h = signup(client, "bad@example.com")
+    assert login(admin).status_code == 200
+    assert admin.post("/admin/api/bans", json={"email": "Bad@Example.com", "action": "ban", "reason": "spam"}, headers=H).status_code == 200
+    assert admin.post("/admin/api/bans", json={"email": "new@example.com", "action": "ban"}, headers=H).status_code == 200
+    assert client.get("/groups", headers=h).status_code == 403  # open session stops working
+    r = client.post("/auth/login", json={"email": "bad@example.com", "password": "correct-horse-battery"})
+    assert r.status_code == 403
+    r = client.post("/auth/signup", json={"email": "new@example.com", "password": "correct-horse-battery"})
+    assert r.status_code == 403 and not client.fake.execute("SELECT 1 FROM users WHERE id = 'new@example.com'").fetchone()
+    bans = admin.get("/admin/api/bans", headers=H).json()["bans"]
+    assert {b["email"] for b in bans} == {"bad@example.com", "new@example.com"}
+    assert [u["banned"] for u in admin.get("/admin/api/users?q=bad", headers=H).json()["users"]] == [True]
+    assert admin.post("/admin/api/bans", json={"email": "bad@example.com", "action": "unban"}, headers=H).status_code == 200
+    assert client.post("/auth/login", json={"email": "bad@example.com", "password": "correct-horse-battery"}).status_code == 200
+    # Ban + delete in one go.
+    assert admin.post("/admin/api/bans", json={"email": "bad@example.com", "action": "ban", "delete": True}, headers=H).status_code == 200
+    assert not client.fake.execute("SELECT 1 FROM users WHERE id = 'bad@example.com'").fetchone()
+    assert admin.post("/admin/api/bans", json={"email": "not-an-email", "action": "ban"}, headers=H).status_code == 400

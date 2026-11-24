@@ -20,6 +20,8 @@ class FakeConn:
             CREATE TABLE group_members (group_id TEXT, user_id TEXT);
             CREATE TABLE calendar_links (user_id TEXT, source TEXT);
             CREATE TABLE admin_audit (at BIGINT, ip TEXT, action TEXT, detail TEXT);
+            CREATE TABLE account_bans (email TEXT PRIMARY KEY, reason TEXT, at BIGINT);
+            CREATE TABLE account_deletions (user_id TEXT PRIMARY KEY, at_ms BIGINT);
         """)
 
     def execute(self, sql, params=()):

@@ -3,7 +3,7 @@ import re
 import bcrypt
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from app.auth_utils import RateLimiter, client_ip, create_session_token
+from app.auth_utils import RateLimiter, client_ip, create_session_token, check_not_banned
 from app.db import conn
 
 router = APIRouter()
@@ -34,6 +34,7 @@ def signup(request: Request, body: dict = Body(...)):
     if len(email) > 254 or not EMAIL_RE.match(email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
     _check_password_rules(password)
+    check_not_banned(email)
     signup_total.check("all")
 
     existing = conn.execute("SELECT id FROM users WHERE id = ?", (email,)).fetchone()

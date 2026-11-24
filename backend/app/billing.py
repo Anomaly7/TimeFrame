@@ -159,6 +159,10 @@ def is_pro(user_id: str) -> bool:
     return False
 
 
+# Free accounts can create this many groups (still a member of them); Pro is unlimited (Sam, 2026-11-24).
+FREE_GROUP_LIMIT = 1
+
+
 def require_pro(user_id: str, what: str = "This"):
     if not is_pro(user_id):
         raise HTTPException(status_code=402, detail=f"{what} is part of TimeFrame Pro.")

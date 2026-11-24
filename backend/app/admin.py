@@ -363,6 +363,7 @@ def users(q: str = "", page: int = 0, ip: str = Depends(require_admin)):
             cal.setdefault(uid, set()).add(src)
         member = dict(conn.execute(f"SELECT user_id, COUNT(*) FROM group_members WHERE user_id IN ({marks}) GROUP BY user_id", ids).fetchall())
         owner = dict(conn.execute(f"SELECT owner, COUNT(*) FROM groups WHERE owner IN ({marks}) GROUP BY owner", ids).fetchall())
+    banned = {e for (e,) in conn.execute("SELECT email FROM account_bans").fetchall()}
     out = []
     for r in rows[:50]:
         uid = r[0]
@@ -373,6 +374,7 @@ def users(q: str = "", page: int = 0, ip: str = Depends(require_admin)):
             "plan": "pro" if r[5] == "pro" else "free", "source": r[6] if r[5] == "pro" else None,
             "proUntil": int(r[7]) if r[7] else None, "joined": int(r[8]) if r[8] else None, "hasSub": bool(r[9]),
             "groups": int(member.get(uid, 0)), "owns": int(owner.get(uid, 0)),
+            "banned": (r[1] or uid).strip().lower() in banned,
         })
     return _json({"users": out, "more": len(rows) > 50, "page": page})
 
@@ -414,6 +416,93 @@ def change_pro(body: dict = Body(...), ip: str = Depends(require_admin)):
         audit(ip, "recheck_stripe", f"{uid}: {status}")
         return _json({"ok": True, "message": f"Stripe says the subscription is {status}."})
     raise HTTPException(status_code=400, detail="Unknown action.")
+
+
+# ---- delete accounts and ban emails (Sam, 2026-11-24) ----
+EMAIL_OK = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}$")
+
+
+def _cancel_stripe(uid: str) -> str:
+    """Stops a paying account's subscription right away, so it isn't charged again. '' if there was none."""
+    row = billing._row(uid)
+    if not row or not row[3]:
+        return ""
+    try:
+        sub = billing.stripe("GET", f"subscriptions/{row[3]}")
+        if sub.get("status") in ("canceled", "incomplete_expired"):
+            return ""
+        billing.stripe("DELETE", f"subscriptions/{row[3]}")
+    except billing.StripeError as e:
+        raise HTTPException(status_code=503, detail=f"Couldn't cancel their Stripe subscription, so nothing was changed: {e}")
+    return " Their Stripe subscription was cancelled (no refund; refund in Stripe if you want to)."
+
+
+def delete_account(uid: str) -> str:
+    """Removes an account and everything it stored: calendars, group memberships, its user row. Groups it ran
+    keep going for the others (any member can claim admin); groups left empty are removed. Sessions it had stop working."""
+    me = uid.strip().lower()
+    note = _cancel_stripe(uid)
+    conn.execute("DELETE FROM busy_times WHERE LOWER(TRIM(user_id)) = ?", (me,))
+    conn.execute("DELETE FROM calendar_links WHERE LOWER(TRIM(user_id)) = ?", (me,))
+    conn.execute("DELETE FROM group_members WHERE LOWER(TRIM(user_id)) = ?", (me,))
+    conn.execute("DELETE FROM group_bans WHERE LOWER(TRIM(user_id)) = ?", (me,))
+    for (gid,) in conn.execute("SELECT id FROM groups WHERE LOWER(TRIM(owner)) = ?", (me,)).fetchall():
+        if conn.execute("SELECT 1 FROM group_members WHERE group_id = ?", (gid,)).fetchone():
+            conn.execute("UPDATE groups SET owner = NULL WHERE id = ?", (gid,))
+        else:
+            conn.execute("DELETE FROM group_bans WHERE group_id = ?", (gid,))
+            conn.execute("DELETE FROM groups WHERE id = ?", (gid,))
+    conn.execute("DELETE FROM users WHERE LOWER(TRIM(id)) = ?", (me,))
+    conn.execute("DELETE FROM account_deletions WHERE user_id = ?", (me,))
+    conn.execute("INSERT INTO account_deletions (user_id, at_ms) VALUES (?, ?)", (me, int(time.time() * 1000)))
+    conn.commit()
+    return note
+
+
+@router.post("/admin/api/users/delete")
+def delete_user(body: dict = Body(...), ip: str = Depends(require_admin)):
+    uid = str(body.get("id") or "")[:320]
+    if not uid or not conn.execute("SELECT 1 FROM users WHERE id = ?", (uid,)).fetchone():
+        raise HTTPException(status_code=404, detail="No account with that email.")
+    note = delete_account(uid)
+    audit(ip, "delete_account", uid)
+    alert(f"TimeFrame admin: deleted the account {uid}.")
+    return _json({"ok": True, "message": f"{uid} was deleted with all its data. They can sign up again as a new account.{note}"})
+
+
+@router.get("/admin/api/bans")
+def list_bans(ip: str = Depends(require_admin)):
+    rows = conn.execute("SELECT email, reason, at FROM account_bans ORDER BY at DESC").fetchall()
+    return _json({"bans": [{"email": e, "reason": r or "", "at": int(a) if a else None} for e, r, a in rows]})
+
+
+@router.post("/admin/api/bans")
+def change_ban(body: dict = Body(...), ip: str = Depends(require_admin)):
+    email = str(body.get("email") or "").strip().lower()[:320]
+    if not EMAIL_OK.match(email):
+        raise HTTPException(status_code=400, detail="Enter an email address.")
+    if body.get("action") == "unban":
+        conn.execute("DELETE FROM account_bans WHERE email = ?", (email,))
+        conn.commit()
+        audit(ip, "unban", email)
+        return _json({"ok": True, "message": f"{email} can sign in again."})
+    if body.get("action") != "ban":
+        raise HTTPException(status_code=400, detail="Unknown action.")
+    reason = str(body.get("reason") or "").strip()[:200]
+    note = ""
+    if body.get("delete"):
+        if conn.execute("SELECT 1 FROM users WHERE LOWER(TRIM(id)) = ?", (email,)).fetchone():
+            note = " Their account and data were deleted." + delete_account(email)
+    else:
+        note = _cancel_stripe(email) if conn.execute("SELECT 1 FROM users WHERE id = ?", (email,)).fetchone() else ""
+        if note:
+            billing._set(email, plan=None, pro_source=None)
+    conn.execute("DELETE FROM account_bans WHERE email = ?", (email,))
+    conn.execute("INSERT INTO account_bans (email, reason, at) VALUES (?, ?, ?)", (email, reason, int(time.time())))
+    conn.commit()
+    audit(ip, "ban", email + (f" ({reason})" if reason else "") + (" + deleted" if body.get("delete") else ""))
+    alert(f"TimeFrame admin: banned {email}.")
+    return _json({"ok": True, "message": f"{email} is banned: it can't sign in or sign up, and any open sessions stop working.{note}"})
 
 
 @router.get("/admin/api/audit")

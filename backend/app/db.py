@@ -149,6 +149,12 @@ CREATE TABLE IF NOT EXISTS admin_audit (
 conn.execute("CREATE INDEX IF NOT EXISTS admin_audit_at ON admin_audit (at)")
 conn.commit()
 
+# Owner admin page (Sam, 2026-11-24): banned emails can't sign in or sign up; a deleted account's
+# old sign-ins stop working (tokens issued before at_ms are refused).
+conn.execute("CREATE TABLE IF NOT EXISTS account_bans (email TEXT PRIMARY KEY, reason TEXT, at BIGINT)")
+conn.execute("CREATE TABLE IF NOT EXISTS account_deletions (user_id TEXT PRIMARY KEY, at_ms BIGINT)")
+conn.commit()
+
 # One-time jobs that must never run twice (each name is recorded once it has run).
 conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)")
 conn.commit()

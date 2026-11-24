@@ -58,6 +58,18 @@
     <div class="row"><button type="button" id="prev" class="ghost">‹ Newer</button><button type="button" id="next" class="ghost">Older ›</button></div>
   </section>
 
+  <section class="card" data-panel="accounts">
+    <h2>Banned emails</h2>
+    <p class="dim">A banned email can't sign up or sign in (Google, Apple, Notion or password), and any session it has stops working.</p>
+    <form id="banForm" class="row">
+      <input id="banEmail" type="email" placeholder="Email to ban" maxlength="320" required>
+      <input id="banReason" placeholder="Reason (only you see it)" maxlength="200">
+      <label class="dim"><input id="banDelete" type="checkbox"> also delete their account and data</label>
+      <button type="submit" class="danger">Ban</button>
+    </form>
+    <ul id="bans" class="audit"></ul>
+  </section>
+
   <section class="card" data-panel="activity">
     <h2>Admin activity</h2>
     <p class="dim">Every sign-in attempt and change made here. Wrong tries you don't recognise? Change ADMIN_PASSWORD and ADMIN_TOTP_SECRET in Render.</p>

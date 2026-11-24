@@ -218,12 +218,19 @@ export default function App() {
     }
   }
 
+  // Settings are a Pro feature (Sam, 2026-11-24): free accounts use the defaults (the server enforces
+  // this too). Until the plan has loaded, assume Pro so nothing flickers.
+  const canCustomize = !billing || !!billing.pro;
+
   function changeSettings(next) {
+    if (!canCustomize) return;
     if (activeGroup?.is_admin) saveGroupSettings(next);
     else if (!settingsLocked) setSettings(next);
   }
 
-  const effectiveSettings = activeGroup?.settings ? { ...settings, ...activeGroup.settings } : settings;
+  const effectiveSettings = activeGroup?.settings
+    ? { ...settings, ...activeGroup.settings }
+    : canCustomize ? settings : DEFAULT_SETTINGS;
   const timePrefsKey = effectiveSettings.timePrefs.join(",");
 
   // 🔹 MERGED BUSY TIMES (from backend)
@@ -406,7 +413,7 @@ export default function App() {
     if (!email) return;
     const q = new URLSearchParams(window.location.search);
     const result = q.get("billing"), sessionId = q.get("session_id");
-    if (q.get("upgrade")) setUpgrade("Unlock groups and the Chrome extension.");
+    if (q.get("upgrade")) setUpgrade("Unlimited groups, your own settings and the Chrome extension.");
     if (result || q.get("upgrade")) {
       ["billing", "session_id", "upgrade"].forEach((k) => q.delete(k));
       const rest = q.toString();
@@ -775,7 +782,7 @@ export default function App() {
               </div>
               <button
                 className={`icon-btn ${settingsOpen ? "on" : ""}`}
-                onClick={() => setSettingsOpen(!settingsOpen)}
+                onClick={() => (canCustomize ? setSettingsOpen(!settingsOpen) : setUpgrade("Settings are part of TimeFrame Pro."))}
                 aria-label="Settings"
                 title="Settings"
               >
@@ -787,7 +794,7 @@ export default function App() {
             </div>
           </div>
 
-          {settingsOpen && (
+          {settingsOpen && canCustomize && (
             <SettingsPanel
               settings={effectiveSettings}
               setSettings={changeSettings}
@@ -844,7 +851,7 @@ export default function App() {
               setGroups={setGroups}
               personalSettings={settings}
               isPro={billing ? isPro : true}
-              onNeedPro={() => setUpgrade("Creating groups is part of TimeFrame Pro.")}
+              onNeedPro={() => setUpgrade("Free accounts can create 1 group. Pro gives you as many as you want.")}
             />
           </section>
 

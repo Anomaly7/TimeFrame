@@ -18,8 +18,13 @@ def test_early_supporters_keep_pro_and_new_free_users_cannot_create_groups(clien
     make_free(client, "free@example.com")
     st = client.get("/billing/status", headers=free).json()
     assert st["pro"] is False and st["prices"] == {"month": "$4.47", "year": "$30.40"}
-    r = client.post("/groups/join?group_id=Wxyz2345", headers=free)
+    # Free accounts can create 1 group; the second needs Pro.
+    assert client.post("/groups/join?group_id=Wxyz2345", headers=free).status_code == 200
+    r = client.post("/groups/join?group_id=Wxyz3456", headers=free)
     assert r.status_code == 402 and "Pro" in r.json()["detail"]
+    # Leaving your group frees the slot.
+    client.post("/groups/leave?group_id=Wxyz2345", headers=free)
+    assert client.post("/groups/join?group_id=Wxyz3456", headers=free).status_code == 200
     # ...but joining someone else's group is free.
     assert client.post("/groups/join?group_id=Abcd2345", headers=free).status_code == 200
 
@@ -104,3 +109,18 @@ def test_tax_is_added_on_top_when_switched_on(client, monkeypatch):
     client.post("/billing/checkout", json={"interval": "month"}, headers=h)
     assert sent[-1]["automatic_tax"] == {"enabled": True}
     assert sent[-1]["line_items"][0]["price_data"]["unit_amount"] == 447
+
+
+def test_settings_are_pro_only(client):
+    free = signup(client, "set@example.com")
+    make_free(client, "set@example.com")
+    assert client.post("/groups/join?group_id=Sett2345", headers=free).status_code == 200
+    rules = {"dayStart": "09:00", "dayEnd": "17:00", "meetingLength": 60, "excludeWeekends": True, "timePrefs": ["morning"]}
+    r = client.post("/groups/settings?group_id=Sett2345", json=rules, headers=free)
+    assert r.status_code == 402 and "Pro" in r.json()["detail"]
+    # A free account's own view always uses the defaults, whatever the browser asks for.
+    url = "/availability/merge?days=1&start_offset=0&timezone=America/Vancouver&keep_manual=1&min_minutes=240&day_start=11:00&day_end=12:00"
+    free_slots = client.post(url, json=[], headers=free).json()
+    pro = signup(client, "setpro@example.com")  # test schema defaults to Pro
+    pro_slots = client.post(url, json=[], headers=pro).json()
+    assert free_slots != pro_slots

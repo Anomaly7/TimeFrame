@@ -64,16 +64,18 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     return res.json();
   }
 
+  const canCreate = isPro || groups.filter((g) => g.is_admin).length < 1;
+
   async function createGroup(e) {
     e.preventDefault();
-    // Creating groups is a Pro feature (the server checks too); joining one stays free.
-    if (!isPro && onNeedPro) return onNeedPro();
+    // Free accounts can create 1 group, Pro unlimited (the server checks too); joining one stays free.
+    if (!canCreate && onNeedPro) return onNeedPro();
     const id = generateShortGroupId();
     try {
       // Join first: the server only shows a group's calendars to its members.
       await post(`/groups/join?group_id=${id}&name=${encodeURIComponent(newName)}`);
-      // A new group starts with its creator's current settings.
-      await fetch(`${API_URL}/groups/settings?group_id=${id}`, {
+      // A new group starts with its creator's current settings (custom settings are Pro).
+      if (isPro) await fetch(`${API_URL}/groups/settings?group_id=${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(personalSettings),
@@ -150,7 +152,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
           maxLength={60}
           onChange={(e) => setNewName(e.target.value)}
         />
-        <button className="btn btn-primary" type="submit">Create group link{!isPro && <span className="pro-tag">PRO</span>}</button>
+        <button className="btn btn-primary" type="submit">Create group link{!canCreate && <span className="pro-tag">PRO</span>}</button>
       </form>
 
       {error && <p className="error-text">{error}</p>}

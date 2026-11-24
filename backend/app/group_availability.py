@@ -73,6 +73,15 @@ def clean_settings(body: dict) -> dict:
     }
 
 
+def owned_group_count(user_id: str) -> int:
+    """Groups this person is admin of and still in (leaving one frees the slot)."""
+    me = user_id.strip().lower()
+    return conn.execute(
+        "SELECT COUNT(DISTINCT g.id) FROM groups g JOIN group_members m ON m.group_id = g.id "
+        "WHERE LOWER(TRIM(g.owner)) = ? AND LOWER(TRIM(m.user_id)) = ?", (me, me)
+    ).fetchone()[0]
+
+
 def is_member(group_id: str, user_id: str) -> bool:
     rows = conn.execute("SELECT user_id FROM group_members WHERE group_id = ?", (group_id,)).fetchall()
     return any(r[0].strip().lower() == user_id.strip().lower() for r in rows)
@@ -110,6 +119,13 @@ def merge_users_availability(
         day_end = group_settings["dayEnd"]
         prefer_order = group_settings["timePrefs"]
         exclude_weekends = group_settings["excludeWeekends"]
+    else:
+        # Custom settings are a Pro feature: a free account always gets the defaults,
+        # whatever its browser sends.
+        from app.billing import is_pro
+        if not is_pro(user_id):
+            min_minutes, day_start, day_end = 30, "08:00", "22:00"
+            prefer_order = ["afternoon", "morning", "evening"]
 
     # The viewer's own current timezone - "today", business hours, and
     # anything they enter manually are all relative to where THEY are right
@@ -343,11 +359,14 @@ def join_group(
     ).fetchone()
     if banned:
         raise HTTPException(status_code=403, detail="The group's admin removed you from this group.")
-    # Creating a new group is a Pro feature; joining someone's existing group stays free.
+    # Free accounts can create one group (counting the ones they own and are still in); Pro is
+    # unlimited. Joining someone else's group is always free.
     exists = conn.execute("SELECT 1 FROM groups WHERE id = ?", (group_id,)).fetchone()
     if not exists:
-        from app.billing import require_pro
-        require_pro(user_id, "Creating a group")
+        from app.billing import FREE_GROUP_LIMIT, is_pro
+        if owned_group_count(user_id) >= FREE_GROUP_LIMIT and not is_pro(user_id):
+            raise HTTPException(status_code=402, detail=(
+                f"Free accounts can create {FREE_GROUP_LIMIT} group. More groups are part of TimeFrame Pro."))
     # Whoever creates the link is its admin.
     conn.execute(
         "INSERT INTO groups (id, name, owner) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",
@@ -429,6 +448,8 @@ def set_group_settings(group_id: str = Query(...), body: dict = Body(...), user_
     """Admin only: the best-time ranking, weekends, meeting length and day
     hours everyone viewing this group uses."""
     require_admin(group_id, user_id)
+    from app.billing import require_pro
+    require_pro(user_id, "Changing settings")
     settings = clean_settings(body)
     conn.execute("UPDATE groups SET settings = ? WHERE id = ?", (json.dumps(settings), group_id))
     conn.commit()

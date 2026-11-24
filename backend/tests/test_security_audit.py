@@ -20,7 +20,7 @@ def test_guessing_group_codes_is_rate_limited(client):
     h = signup(client, "hunter@example.com")
     make_free(client, "hunter@example.com")
     codes = [client.post(f"/groups/join?group_id=Gues{i:04d}", headers=h).status_code for i in range(35)]
-    assert codes[0] == 402 and 429 in codes
+    assert codes[0] == 200 and codes[1] == 402 and 429 in codes  # free accounts get 1 group
 
 
 def test_coupon_once_per_account_cap_and_global_lock(client, monkeypatch):

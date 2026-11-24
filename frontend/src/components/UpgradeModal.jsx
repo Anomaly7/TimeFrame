@@ -6,7 +6,8 @@ import { showLoader } from "../loading";
 // (the coupon gives Pro for free right here, no card).
 
 const FEATURES = [
-  "Create groups and share invite links",
+  "Create as many groups as you want (Free: 1)",
+  "Settings: your hours, meeting length, weekends and best times",
   "The TimeFrame Chrome extension",
   "Everything in Free: Google, Apple, Notion and .ics calendars",
 ];

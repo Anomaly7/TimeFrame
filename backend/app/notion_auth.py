@@ -29,7 +29,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import RedirectResponse
 
-from app.auth_utils import ALGORITHM, _secret, create_session_token, get_current_user
+from app.auth_utils import ALGORITHM, _secret, create_session_token, get_current_user, is_banned, BANNED_DETAIL
 from app.busy_store import insert_busy_rows, is_linked, mark_linked, unlink
 from app.calendar_import import PST
 from app.db import conn
@@ -245,6 +245,8 @@ def notion_callback(request: Request):
         email = notion_email(token_response)
         if not email:
             return _error("Notion didn't share your email. Sign in another way, then connect Notion.")
+        if is_banned(email):
+            return _error(BANNED_DETAIL)
         row = conn.execute("SELECT password_hash, email_verified FROM users WHERE id = ?", (email,)).fetchone()
         if row and row[0] and not row[1]:
             # Someone made a password account with this email that was never

@@ -96,10 +96,23 @@ async function loadUsers() {
         catch (err) { if (err.message !== "signed out") msg("actMsg", err.message, "err"); ev.target.disabled = false; }
       },
     });
+    const remove = (action, label, confirmText, body) => el("button", {
+      type: "button", class: "small danger", text: label,
+      onclick: async (ev) => {
+        if (!window.confirm(confirmText)) return;
+        ev.target.disabled = true;
+        try { const r = await api(action, body); msg("actMsg", r.message, "ok"); await Promise.all([loadUsers(), loadBans()]); loadAudit(); }
+        catch (err) { if (err.message !== "signed out") msg("actMsg", err.message, "err"); ev.target.disabled = false; }
+      },
+    });
     const actions = el("td", { class: "actions" },
       u.plan !== "pro" ? act("grant", "Give Pro", "ghost", "Give " + u.email + " Pro for free?") : null,
       u.plan === "pro" && u.source !== "stripe" ? act("revoke", "Remove Pro", "danger", "Put " + u.email + " back on Free?") : null,
-      u.hasSub ? act("recheck", "Re-check Stripe") : null);
+      u.hasSub ? act("recheck", "Re-check Stripe") : null,
+      remove("users/delete", "Delete", "Delete " + u.email + " and ALL its data (calendars, groups, plan)? This can't be undone. They can sign up again as a new account." +
+        (u.hasSub ? " Their Stripe subscription will be cancelled." : ""), { id: u.id }),
+      u.banned ? el("span", { class: "pill", text: "Banned" }) : remove("bans", "Ban", "Ban " + u.email + "? They're signed out and can't sign in or sign up again until you unban them." +
+        (u.hasSub ? " Their Stripe subscription will be cancelled." : ""), { email: u.email, action: "ban" }));
     return el("tr", {},
       el("td", {}, el("div", { text: u.email }), u.name ? el("div", { class: "sub", text: u.name }) : null),
       el("td", { text: date(u.joined) }),
@@ -116,10 +129,37 @@ $("searchForm").addEventListener("submit", (e) => { e.preventDefault(); page = 0
 $("prev").addEventListener("click", () => { page = Math.max(0, page - 1); loadUsers().catch(show); });
 $("next").addEventListener("click", () => { page += 1; loadUsers().catch(show); });
 
+// ---- banned emails ----
+async function loadBans() {
+  const d = await api("bans");
+  const items = d.bans.map((b) => el("li", {},
+    b.email + (b.reason ? " · " + b.reason : "") + (b.at ? " · " + date(b.at) + " " : " "),
+    el("button", { type: "button", class: "small ghost", text: "Unban", onclick: async (ev) => {
+      if (!window.confirm("Let " + b.email + " sign in again?")) return;
+      ev.target.disabled = true;
+      try { const r = await api("bans", { email: b.email, action: "unban" }); msg("actMsg", r.message, "ok"); await Promise.all([loadBans(), loadUsers()]); loadAudit(); }
+      catch (err) { show(err); ev.target.disabled = false; }
+    } })));
+  if (!items.length) items.push(el("li", { class: "dim", text: "No banned emails." }));
+  $("bans").replaceChildren(...items);
+}
+$("banForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("banEmail").value.trim(), del = $("banDelete").checked;
+  if (!window.confirm("Ban " + email + (del ? " and delete its account and ALL its data (can't be undone)" : "") + "?")) return;
+  try {
+    const r = await api("bans", { email, reason: $("banReason").value, action: "ban", delete: del });
+    msg("actMsg", r.message, "ok");
+    $("banEmail").value = ""; $("banReason").value = ""; $("banDelete").checked = false;
+    await Promise.all([loadBans(), loadUsers()]); loadAudit();
+  } catch (err) { show(err); }
+});
+
 // ---- audit ----
 async function loadAudit() {
   const d = await api("audit");
-  const label = { login: "Signed in", login_failed: "Wrong sign-in", grant_pro: "Gave Pro", revoke_pro: "Removed Pro", recheck_stripe: "Re-checked Stripe" };
+  const label = { login: "Signed in", login_failed: "Wrong sign-in", grant_pro: "Gave Pro", revoke_pro: "Removed Pro", recheck_stripe: "Re-checked Stripe",
+    delete_account: "Deleted account", ban: "Banned", unban: "Unbanned" };
   $("audit").replaceChildren(...d.events.map((e) => el("li", { class: e.action === "login_failed" ? "bad" : "" },
     when(e.at) + " · " + (label[e.action] || e.action) + " · " + e.ip + (e.detail && e.action !== "login" ? " · " + e.detail : ""))));
 }
@@ -145,6 +185,6 @@ async function start() {
     msg("actMsg", "Overview didn't load: " + err.message, "err"); // never leave a blank page
   }
   $("login").hidden = true; $("app").hidden = false;
-  await Promise.all([loadUsers().catch(show), loadAudit().catch(show)]);
+  await Promise.all([loadUsers().catch(show), loadAudit().catch(show), loadBans().catch(show)]);
 }
 start();

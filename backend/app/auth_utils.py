@@ -27,8 +27,47 @@ def _secret() -> str:
     return secret
 
 
+BANNED_DETAIL = "This email can't be used with TimeFrame."
+DELETED_DETAIL = "This account was deleted. Sign up again to use TimeFrame."
+
+
+def _db():
+    """The app database, or None where there isn't one (the token unit tests). Imported here:
+    the endpoint tests swap in their own database."""
+    try:
+        from app.db import conn
+        return conn
+    except RuntimeError:  # DATABASE_URL not set
+        return None
+
+
+def is_banned(email: str) -> bool:
+    """The owner banned this email on the admin page (Sam, 2026-11-24)."""
+    conn = _db()
+    return bool(conn) and bool(conn.execute(
+        "SELECT 1 FROM account_bans WHERE email = ?", ((email or "").strip().lower(),)).fetchone())
+
+
+def check_not_banned(email: str):
+    if is_banned(email):
+        raise HTTPException(status_code=403, detail=BANNED_DETAIL)
+
+
+def _deleted_after(user_id: str, issued_ms) -> bool:
+    """True if the owner deleted this account after the token was issued (old tokens can't
+    reach a re-created account's fresh data, or keep a deleted one alive)."""
+    conn = _db()
+    if not conn:
+        return False
+    row = conn.execute(
+        "SELECT at_ms FROM account_deletions WHERE user_id = ?", ((user_id or "").strip().lower(),)).fetchone()
+    return bool(row) and (not isinstance(issued_ms, int) or issued_ms <= int(row[0]))
+
+
 def create_session_token(user_id: str, ttl_seconds: int = TOKEN_TTL_SECONDS) -> str:
-    payload = {"sub": user_id, "exp": int(time.time()) + ttl_seconds, "typ": "session"}
+    check_not_banned(user_id)  # every sign-in and renewal goes through here
+    now = time.time()
+    payload = {"sub": user_id, "exp": int(now) + ttl_seconds, "typ": "session", "iat_ms": int(now * 1000)}
     return jwt.encode(payload, _secret(), algorithm=ALGORITHM)
 
 
@@ -52,6 +91,10 @@ def get_current_user(authorization: str = Header(None)) -> str:
     if payload.get("typ", "session") != "session" or "sub" not in payload:
         raise HTTPException(status_code=401, detail="Session expired, please sign in again")
 
+    if is_banned(payload["sub"]):
+        raise HTTPException(status_code=403, detail=BANNED_DETAIL)
+    if _deleted_after(payload["sub"], payload.get("iat_ms")):
+        raise HTTPException(status_code=401, detail=DELETED_DETAIL)
     return payload["sub"]
 
 

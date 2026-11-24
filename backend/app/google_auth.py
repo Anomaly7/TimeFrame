@@ -10,7 +10,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from starlette.responses import RedirectResponse
 from app.availability import parse_event, find_free_time, PST
-from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, clean_text, create_session_token,
+from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, clean_text, create_session_token, is_banned, BANNED_DETAIL,
                             get_current_user, oauth_state_app_redirect, safe_app_redirect, verify_oauth_state)
 from datetime import datetime, time, timedelta
 from app.db import conn
@@ -179,6 +179,8 @@ def callback(request: Request):
     calendar_info = calendar.calendarList().get(calendarId="primary").execute()
     email = calendar_info["id"]   # usually the email
     user_id = email               # simple + stable
+    if is_banned(email):
+        return RedirectResponse(f"{back_to}#auth_error=" + quote(BANNED_DETAIL))
 
 
     # Google has just proven this person owns the address. If someone else

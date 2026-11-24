@@ -20,7 +20,7 @@ import icalendar
 import recurring_ical_events
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.auth_utils import RateLimiter, client_ip, create_session_token, get_current_user
+from app.auth_utils import RateLimiter, check_not_banned, client_ip, create_session_token, get_current_user
 from app.busy_store import insert_busy_rows, is_linked, mark_linked, unlink
 from app.calendar_import import MAX_EVENTS, PST, event_rows
 from app.db import conn
@@ -201,6 +201,7 @@ def login_apple(request: Request, body: dict = Body(...)):
     if "@" not in email:
         raise HTTPException(status_code=400, detail="Use the email address of your Apple ID.")
     apple_limiter.check("ip:" + client_ip(request), "user:" + email)
+    check_not_banned(email)
     events = _read_apple(apple_id, password)
 
     row = conn.execute("SELECT password_hash, email_verified FROM users WHERE id = ?", (email,)).fetchone()

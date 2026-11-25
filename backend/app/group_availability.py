@@ -429,6 +429,10 @@ def join_group(
         )
 
     conn.commit()
+    if not already_member and existing_members:
+        from app.bookings import display_name
+        from app.notifications import notify_group
+        notify_group(group_id, "joined", f"{display_name(user_id)} joined the group", exclude=user_id)
     return {"joined": True}
 
 

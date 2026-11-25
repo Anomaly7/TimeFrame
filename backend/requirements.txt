@@ -12,3 +12,4 @@ recurring-ical-events
 bcrypt
 tzdata; sys_platform == "win32"
 cryptography
+pywebpush

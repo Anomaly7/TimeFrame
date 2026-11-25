@@ -1565,3 +1565,20 @@
 .poll-count { font-weight: 700; color: var(--text-muted); }
 .poll-pick { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; width: 100%; }
 .poll-new { margin-bottom: 0.4rem; }
+
+/* ---- Notifications bell (2026-11-25) ---- */
+.dash-user { display: flex; align-items: center; gap: 0.5rem; }
+.bell { position: relative; }
+.bell-btn { position: relative; }
+.bell-dot { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger);
+  color: #fff; font-size: 0.62rem; font-weight: 800; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); }
+.bell-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 41; width: min(340px, calc(100vw - 1.5rem)); max-height: 70vh; overflow-y: auto;
+  padding: 0.5rem; background: var(--surface); border-radius: 16px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.06); }
+.bell-head { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0.5rem 0.5rem; }
+.bell-menu ul { list-style: none; margin: 0; padding: 0; }
+.bell-menu li { display: flex; gap: 0.6rem; padding: 0.55rem 0.5rem; border-radius: 10px; font-size: 0.84rem; line-height: 1.4; }
+.bell-menu li.unread { background: var(--accent-soft); }
+.bell-icon { flex: none; }
+.bell-text { display: flex; flex-direction: column; }
+.bell-text small { color: var(--text-muted); font-size: 0.72rem; }
+.bell-empty { padding: 0 0.5rem 0.4rem; }

@@ -17,6 +17,7 @@ import UpgradeModal from "./components/UpgradeModal";
 import BookModal from "./components/BookModal";
 import PlanPanel from "./components/PlanPanel";
 import PollsCard from "./components/PollsCard";
+import NotificationsBell from "./components/NotificationsBell";
 import GuestJoin from "./components/GuestJoin";
 import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
@@ -785,6 +786,11 @@ export default function App() {
           <span>TimeFrame</span>
         </div>
         <div className="dash-user">
+          <NotificationsBell
+            authHeaders={authHeaders}
+            notify={showToast}
+            onActivity={() => { setPlanRefresh((n) => n + 1); setGroupsRefresh((n) => n + 1); }}
+          />
           {editingName ? (
             <form className="user-chip name-form" onSubmit={saveName}>
               <input

@@ -341,10 +341,19 @@ export default function CalendarView({
                         title={`${owner} · ${formatBlockTime(b.start, timezone)} – ${formatBlockTime(b.end, timezone)}`}
                       >
                         <div className="block-content">
-                          <span className="block-time">{owner}</span>
-                          <span className="block-sub">
-                            {formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}
-                          </span>
+                          {/* Only label whose block it is when more than one person's calendar is showing. */}
+                          {owners.length > 1 ? (
+                            <>
+                              <span className="block-time">{owner}</span>
+                              <span className="block-sub">
+                                {formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="block-sub solo">
+                              {formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

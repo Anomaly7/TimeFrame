@@ -191,6 +191,20 @@ export default function App() {
   const [groupsRefresh, setGroupsRefresh] = useState(0);
   const [groups, setGroups] = useState([]);
   const [settingsError, setSettingsError] = useState("");
+  // In-app notice instead of alert(): alert() freezes the whole page until someone clicks OK (2026-11-25).
+  const [toast, setToast] = useState(null); // { text, kind }
+  const toastTimer = useRef(null);
+  function showToast(text, kind = "info") {
+    clearTimeout(toastTimer.current);
+    setToast({ text, kind });
+    toastTimer.current = setTimeout(() => setToast(null), 7000);
+  }
+  // Sidebar tab, remembered between visits.
+  const [sideTab, setSideTab] = useState(() => localStorage.getItem("sideTab") || "groups");
+  function pickSideTab(tab) {
+    setSideTab(tab);
+    localStorage.setItem("sideTab", tab);
+  }
 
   // Viewing a group: its admin's settings apply to everyone (the server
   // enforces this too). Groups made before admins existed have none until
@@ -279,7 +293,7 @@ export default function App() {
       const q = clean.toString();
       window.history.replaceState(null, "", window.location.pathname + (q ? "?" + q : ""));
     }
-    if (authError) alert(authError);
+    if (authError) showToast(authError, "error");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenFromUrl]);
 
@@ -311,7 +325,7 @@ export default function App() {
         const detail = (await res.json().catch(() => ({}))).detail;
         localStorage.removeItem("groupId");
         setActiveGroupId(null);
-        alert(detail || "Couldn't join that group.");
+        showToast(detail || "Couldn't join that group.", "error");
         fetchAvailability(manualBusy).catch((err) => console.error(err));
         return;
       }
@@ -611,9 +625,17 @@ export default function App() {
 
   // No valid session - the rest of the app (and the data it would show)
   // stays completely hidden until Google sign-in succeeds.
+  const toastEl = toast && (
+    <div className={`toast toast-${toast.kind}`} role={toast.kind === "error" ? "alert" : "status"}>
+      <span>{toast.text}</span>
+      <button type="button" className="icon-x" onClick={() => setToast(null)} aria-label="Dismiss">✕</button>
+    </div>
+  );
+
   if (email === null) {
     return (
       <div className="auth-shell">
+        {toastEl}
         <aside className="auth-hero" aria-hidden="true">
           <div className="auth-logo auth-logo-light">
             <img src="/favicon.svg" alt="" />
@@ -692,6 +714,7 @@ export default function App() {
 
   return (
     <div className="dash">
+      {toastEl}
       {fetching > 0 && <div className="top-progress" role="progressbar" aria-label="Loading"><span /></div>}
       <header className="dash-topbar">
         <div className="auth-logo dash-logo">
@@ -850,8 +873,26 @@ export default function App() {
         </main>
 
         <aside className="dash-side">
-          <section className="side-section">
-            <h3 className="side-label">Groups</h3>
+          <div className="side-tabs" role="tablist" aria-label="Sidebar">
+            {[
+              ["groups", "Groups", groups.length || null],
+              ["calendars", "Calendars", [googleConnected, appleConnected, notionConnected].filter(Boolean).length || null],
+              ["busy", "Busy times", manualBusy.length || null],
+            ].map(([key, label, count]) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={sideTab === key}
+                className={sideTab === key ? "active" : ""}
+                onClick={() => pickSideTab(key)}
+              >
+                {label}
+                {count != null && <span className="side-count">{count}</span>}
+              </button>
+            ))}
+          </div>
+
+          <section className="side-section" hidden={sideTab !== "groups"}>
             <GroupsPanel
               authHeaders={authHeaders}
               activeGroupId={activeGroupId}
@@ -865,8 +906,7 @@ export default function App() {
             />
           </section>
 
-          <section className="side-section">
-            <h3 className="side-label">Calendars</h3>
+          <section className="side-section" hidden={sideTab !== "calendars"}>
             <GoogleConnect connected={googleConnected} />
             <AppleConnect connected={appleConnected} onChanged={onLinksChanged} />
             {(notionAvailable || notionConnected) && (
@@ -876,8 +916,7 @@ export default function App() {
             <ImportIcs onImported={() => fetchAvailability(manualBusy)} />
           </section>
 
-          <section className="side-section">
-            <h3 className="side-label">Busy times</h3>
+          <section className="side-section" hidden={sideTab !== "busy"}>
             <AvailabilityForm
               manualBusy={manualBusy}
               setManualBusy={setManualBusy}

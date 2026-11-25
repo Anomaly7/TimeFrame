@@ -50,6 +50,8 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [menuFor, setMenuFor] = useState(null); // group whose ⋯ menu is open
+  const [managing, setManaging] = useState(null); // group whose member list is open
   const [confirmKick, setConfirmKick] = useState(null); // `${groupId}|${memberId}`
   const [copied, setCopied] = useState(null);
   const [made, setMade] = useState(null); // { id, link, copied } after "Create group link"
@@ -189,24 +191,44 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     navigator.share({ title: "Join my TimeFrame group", text: "Find a time that works for everyone:", url: link }).catch(() => {});
   }
 
+
+  function initials(name) {
+    return (name || "?").trim().charAt(0).toUpperCase();
+  }
+
+  function avatars(members) {
+    const shown = members.slice(0, 3);
+    return (
+      <span className="g-avatars" aria-hidden="true">
+        {shown.map((m, i) => (
+          <span key={m.id} className={`g-avatar p${i}`} title={m.name}>{m.you ? "Y" : initials(m.name)}</span>
+        ))}
+        {members.length > 3 && <span className="g-avatar more">+{members.length - 3}</span>}
+      </span>
+    );
+  }
+
   return (
     <div className="card groups-panel">
       <form className="groups-new" onSubmit={createGroup}>
         <input
           className="activity-name-input"
-          placeholder="Name a new group (e.g. Robotics team)"
+          placeholder="New group name"
+          aria-label="New group name"
           value={newName}
           maxLength={60}
           onChange={(e) => setNewName(e.target.value)}
         />
-        <button className="btn btn-primary" type="submit">Create group link{!canCreate && <span className="pro-tag">PRO</span>}</button>
+        <button className="btn btn-primary" type="submit">
+          Create link{!canCreate && <span className="pro-tag">PRO</span>}
+        </button>
       </form>
 
       {made && (
         <div className={`link-made ${made.copied ? "ok" : ""}`} role="status">
           <div className="link-made-head">
-            <strong>{made.copied ? "✓ Group created. Link copied" : "Group created. Copy your link"}</strong>
-            <button type="button" className="link-btn muted" onClick={() => setMade(null)} aria-label="Dismiss">✕</button>
+            <strong>{made.copied ? "✓ Group created · link copied" : "Group created · copy your link"}</strong>
+            <button type="button" className="icon-x" onClick={() => setMade(null)} aria-label="Dismiss">✕</button>
           </div>
           <p>{made.copied ? "Paste it anywhere to invite people." : "Your browser blocked automatic copying. Use the button below."}</p>
           <div className="link-made-row">
@@ -216,24 +238,32 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
           </div>
         </div>
       )}
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <div className="notice notice-error" role="alert">
+          <span>{error}</span>
+          <button type="button" className="icon-x" onClick={() => setError("")} aria-label="Dismiss">✕</button>
+        </div>
+      )}
 
       <ul className="groups-list">
-        <li className={`groups-row ${!activeGroupId ? "active" : ""}`}>
-          <div className="groups-info">
-            <strong>Just me</strong>
-            <span className="groups-members">Only your own calendar</span>
-          </div>
-          <div className="groups-actions">
-            {!activeGroupId ? <span className="status-pill connected">Viewing</span> : (
-              <button className="btn-ghost" onClick={() => onSwitch(null)}>View</button>
-            )}
+        <li className={`g-row ${!activeGroupId ? "active" : ""}`}>
+          <div className="g-head">
+            <button type="button" className="g-main" onClick={() => onSwitch(null)} aria-pressed={!activeGroupId}>
+              <span className="g-avatars" aria-hidden="true"><span className="g-avatar p0">Y</span></span>
+              <span className="g-text">
+                <strong>Just me</strong>
+                <span className="g-sub">Only your calendar</span>
+              </span>
+            </button>
+            {!activeGroupId && <span className="g-viewing">Viewing</span>}
           </div>
         </li>
 
-        {groups.map((g) => (
-          <li className={`groups-row ${g.id === activeGroupId ? "active" : ""}`} key={g.id}>
-            <div className="groups-info">
+        {groups.map((g) => {
+          const others = g.members.filter((m) => !m.you);
+          const active = g.id === activeGroupId;
+          return (
+            <li className={`g-row ${active ? "active" : ""}`} key={g.id}>
               {renaming === g.id ? (
                 <form className="groups-rename" onSubmit={(e) => saveRename(e, g.id)}>
                   <input
@@ -242,35 +272,96 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                     autoFocus
                     onFocus={(e) => e.target.select()}
                     placeholder="Group name"
+                    aria-label="Group name"
                     onChange={(e) => setRenameDraft(e.target.value)}
                   />
-                  <button className="link-btn" type="submit">Save</button>
-                  <button className="link-btn muted" type="button" onClick={() => setRenaming(null)}>Cancel</button>
+                  <button className="btn btn-primary btn-sm" type="submit">Save</button>
+                  <button className="btn-ghost btn-sm" type="button" onClick={() => setRenaming(null)}>Cancel</button>
                 </form>
               ) : (
-                <strong>{g.name || `Unnamed group (${g.id})`}</strong>
+                <div className="g-head">
+                  <button type="button" className="g-main" onClick={() => onSwitch(g.id)} aria-pressed={active}>
+                    {avatars(g.members)}
+                    <span className="g-text">
+                      <strong>
+                        <span className="g-name">{g.name || `Unnamed group (${g.id})`}</span>
+                        {g.is_admin && <span className="g-badge" title="You're the admin">Admin</span>}
+                      </strong>
+                      <span className="g-sub">
+                        {g.members.length} {g.members.length === 1 ? "member" : "members"}
+                        {others.length > 0 && ` · ${others.slice(0, 2).map((m) => m.name).join(", ")}${others.length > 2 ? ` +${others.length - 2}` : ""}`}
+                      </span>
+                    </span>
+                  </button>
+                  {active && <span className="g-viewing">Viewing</span>}
+                  <button
+                    type="button"
+                    className={`g-icon ${copied === g.id ? "done" : ""}`}
+                    onClick={() => copy(g.id)}
+                    title={copied === g.id ? "Copied!" : "Copy invite link"}
+                    aria-label="Copy invite link"
+                  >
+                    {copied === g.id ? "✓" : (
+                      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                        <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="g-more">
+                    <button
+                      type="button"
+                      className="g-icon"
+                      aria-label="More actions"
+                      title="More actions"
+                      aria-expanded={menuFor === g.id}
+                      onClick={() => setMenuFor(menuFor === g.id ? null : g.id)}
+                    >
+                      ⋯
+                    </button>
+                    {menuFor === g.id && (
+                      <>
+                        <div className="dash-menu-backdrop" onClick={() => setMenuFor(null)} />
+                        <div className="g-menu" role="menu">
+                          <button role="menuitem" onClick={() => { setMenuFor(null); copy(g.id); }}>Copy invite link</button>
+                          {canShare && <button role="menuitem" onClick={() => { setMenuFor(null); share(linkFor(g.id)); }}>Share…</button>}
+                          {g.is_admin && (
+                            <button role="menuitem" onClick={() => { setMenuFor(null); setRenameDraft(g.name || ""); setRenaming(g.id); }}>Rename</button>
+                          )}
+                          {g.is_admin && others.length > 0 && (
+                            <button role="menuitem" onClick={() => { setMenuFor(null); setManaging(managing === g.id ? null : g.id); }}>
+                              {managing === g.id ? "Hide members" : "Manage members"}
+                            </button>
+                          )}
+                          {g.claimable && (
+                            <button role="menuitem" onClick={() => { setMenuFor(null); claim(g.id); }}>Make me admin</button>
+                          )}
+                          <hr />
+                          <button role="menuitem" className="danger" onClick={() => { setMenuFor(null); setConfirmDelete(null); setConfirmLeave(g.id); }}>Leave group</button>
+                          {g.is_admin && (
+                            <button role="menuitem" className="danger" onClick={() => { setMenuFor(null); setConfirmLeave(null); setConfirmDelete(g.id); }}>Delete group</button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
               )}
-              <span className="groups-members">
-                {g.members.map((m) => `${m.admin ? "👑 " : ""}${m.name}`).join(", ")}
-              </span>
-              {g.is_admin && g.members.some((m) => !m.you) && (
-                <ul className="groups-member-list">
-                  {g.members.filter((m) => !m.you).map((m) => {
+
+              {managing === g.id && g.is_admin && others.length > 0 && (
+                <ul className="g-members">
+                  {others.map((m) => {
                     const key = `${g.id}|${m.id}`;
                     return (
                       <li key={m.id}>
-                        <span>{m.name}</span>
+                        <span className="g-avatar sm" aria-hidden="true">{initials(m.name)}</span>
+                        <span className="g-member-name">{m.name}</span>
                         {confirmKick === key ? (
-                          <>
-                            <button className="btn-danger-ghost" onClick={() => kick(g.id, m.id)}>Yes, remove</button>
-                            <button className="link-btn muted" onClick={() => setConfirmKick(null)}>Cancel</button>
-                          </>
+                          <span className="g-actions">
+                            <button className="btn-ghost btn-sm" onClick={() => setConfirmKick(null)}>Cancel</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => kick(g.id, m.id)}>Remove</button>
+                          </span>
                         ) : (
-                          <button
-                            className="btn-ghost"
-                            onClick={() => setConfirmKick(key)}
-                            aria-label={`Remove ${m.name} from the group`}
-                          >
+                          <button className="btn-ghost btn-sm" onClick={() => setConfirmKick(key)} aria-label={`Remove ${m.name} from the group`}>
                             Remove
                           </button>
                         )}
@@ -279,41 +370,37 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                   })}
                 </ul>
               )}
-            </div>
 
-            <div className="groups-actions">
-              {g.id === activeGroupId ? <span className="status-pill connected">Viewing</span> : (
-                <button className="btn-ghost" onClick={() => onSwitch(g.id)}>View</button>
+              {confirmLeave === g.id && (
+                <div className="g-confirm">
+                  <p><strong>Leave {g.name || "this group"}?</strong> You'll need the link to rejoin.</p>
+                  <div className="g-actions">
+                    <button className="btn-ghost btn-sm" onClick={() => setConfirmLeave(null)}>Cancel</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => leave(g.id)}>Leave</button>
+                  </div>
+                </div>
               )}
-              <button className="btn-ghost" onClick={() => copy(g.id)}>{copied === g.id ? "Copied!" : "Copy link"}</button>
-              {g.is_admin && (
-                <button className="btn-ghost" onClick={() => { setRenameDraft(g.name || ""); setRenaming(g.id); }}>Rename</button>
+              {confirmDelete === g.id && (
+                <div className="g-confirm">
+                  <p>
+                    <strong>Delete {g.name || "this group"}?</strong>{" "}
+                    {others.length > 0
+                      ? `This removes ${others.length} ${others.length === 1 ? "person" : "people"} and the link stops working. It can't be undone.`
+                      : "The link stops working. It can't be undone."}
+                  </p>
+                  <div className="g-actions">
+                    <button className="btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => removeGroup(g.id)}>Delete group</button>
+                  </div>
+                </div>
               )}
-              {g.claimable && (
-                <button className="btn-ghost" onClick={() => claim(g.id)} title="This older link has no admin yet">Make me admin</button>
-              )}
-              {g.is_admin && (confirmDelete === g.id ? (
-                <>
-                  <button className="btn-danger-ghost" onClick={() => removeGroup(g.id)}>
-                    Delete for everyone{g.members.length > 1 ? ` (${g.members.length - 1} ${g.members.length === 2 ? "person" : "people"})` : ""}?
-                  </button>
-                  <button className="link-btn muted" onClick={() => setConfirmDelete(null)}>Cancel</button>
-                </>
-              ) : (
-                <button className="btn-danger-ghost" onClick={() => { setConfirmLeave(null); setConfirmDelete(g.id); }}>Delete</button>
-              ))}
-              {confirmLeave === g.id ? (
-                <>
-                  <button className="btn-danger-ghost" onClick={() => leave(g.id)}>Leave?</button>
-                  <button className="link-btn muted" onClick={() => setConfirmLeave(null)}>Cancel</button>
-                </>
-              ) : (
-                <button className="btn-ghost" onClick={() => setConfirmLeave(g.id)}>Leave</button>
-              )}
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
+      {groups.length === 0 && (
+        <p className="g-empty">Create a group and share the link. Everyone who joins sees when you're all free.</p>
+      )}
     </div>
   );
 }

@@ -55,8 +55,10 @@ export default function AvailabilityForm({ manualBusy, setManualBusy }) {
     <div className="card">
       <div className="datetime-row">
         <div className="datetime-group">
+          <span className="field-label">Starts</span>
           <input
             type="date"
+            aria-label="Start date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
@@ -64,8 +66,10 @@ export default function AvailabilityForm({ manualBusy, setManualBusy }) {
         </div>
         <span className="arrow">→</span>
         <div className="datetime-group">
+          <span className="field-label">Ends</span>
           <input
             type="date"
+            aria-label="End date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />

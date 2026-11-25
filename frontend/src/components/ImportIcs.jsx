@@ -56,13 +56,21 @@ export default function ImportIcs({ onImported }) {
         once: each import replaces the previous one.
       </p>
 
-      <div className="btn-row">
+      <label className="file-drop">
         <input
           type="file"
           accept=".ics"
           multiple
           onChange={(e) => setFiles(Array.from(e.target.files || []).slice(0, 10))}
         />
+        <span className="file-drop-icon" aria-hidden="true">⤒</span>
+        <span className="file-drop-text">
+          {files.length
+            ? files.length === 1 ? files[0].name : `${files.length} files selected`
+            : <>Choose <b>.ics</b> files</>}
+        </span>
+      </label>
+      <div className="btn-row">
         <button className="btn btn-primary" onClick={upload} disabled={!files.length || loading}>
           {loading && <span className="spinner" />}
           {loading ? "Importing..." : "Import"}

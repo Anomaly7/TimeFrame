@@ -383,6 +383,16 @@ export default function App() {
 
     fetch(`${API_URL}/auth/me`, { headers: authHeaders() })
       .then(res => {
+        if (res.status === 401 || res.status === 403) {
+          // Signed out, deleted or banned by the owner: forget everything this browser kept for that
+          // account (calendar copy, manual blocks, groups), or a new sign-up here would re-upload it.
+          const remember = localStorage.getItem("rememberMe");
+          localStorage.clear();
+          if (remember !== null) localStorage.setItem("rememberMe", remember);
+          setManualBusy([]);
+          setBusyTimes([]);
+          setFreeTimes([]);
+        }
         if (!res.ok) throw new Error("Session invalid");
         return res.json();
       })

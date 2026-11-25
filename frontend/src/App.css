@@ -1638,3 +1638,20 @@
 /* ---- Offline (PWA, 2026-11-25) ---- */
 .offline-note { background: #fff7e0; color: #7a5300; }
 @media (prefers-color-scheme: dark) { .offline-note { background: rgba(250, 204, 21, 0.14); color: #fcd34d; } }
+
+/* ---- Phones: calendar first (2026-11-25, offered 2026-11-01) ----
+   The calendar is always the first thing under the header, with the Plan/Groups/Calendars/Busy tabs below it,
+   whatever order the markup ends up in; the header is tightened so more of the calendar shows without scrolling. */
+@media (max-width: 900px) {
+  .dash-body { display: flex; flex-direction: column; }
+  .dash-main { order: 1; width: 100%; }
+  .dash-side { order: 2; width: 100%; }
+}
+@media (max-width: 640px) {
+  .dash-body { padding-top: 0.6rem; gap: 0.9rem; }
+  .dash-toolbar { margin-bottom: 0.6rem; gap: 0.5rem; }
+  .dash-greeting { font-size: 0.78rem; }
+  .dash-range h1 { font-size: 1.15rem; }
+  .dash-main > .card { margin-bottom: 0.6rem; }
+  .side-tabs { position: sticky; top: 68px; z-index: 5; background: var(--bg); padding-top: 0.3rem; }
+}

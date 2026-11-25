@@ -1634,3 +1634,7 @@
 .note-meta { display: flex; align-items: center; gap: 0.4rem; }
 .note-meta small { color: var(--text-muted); font-size: 0.72rem; }
 .note-meta .link-btn { margin-left: auto; font-size: 0.75rem; }
+
+/* ---- Offline (PWA, 2026-11-25) ---- */
+.offline-note { background: #fff7e0; color: #7a5300; }
+@media (prefers-color-scheme: dark) { .offline-note { background: rgba(250, 204, 21, 0.14); color: #fcd34d; } }

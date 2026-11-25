@@ -5,6 +5,13 @@ import Root from './Root.jsx'
 import { fetchStatus } from './maintenance.js'
 
 // Service worker: push notifications and the offline copy of the app (public/sw.js).
+// Chrome/Edge/Android offer "Install app": keep the prompt so the account menu can show it (see InstallItem).
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  window.__tfInstallPrompt = e
+  window.dispatchEvent(new Event('tf-installable'))
+})
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
 }

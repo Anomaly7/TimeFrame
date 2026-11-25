@@ -21,6 +21,7 @@ import NotificationsBell from "./components/NotificationsBell";
 import WeeklyFinder from "./components/WeeklyFinder";
 import BookingPageSettings from "./components/BookingPageSettings";
 import NotesCard from "./components/NotesCard";
+import InstallItem from "./components/InstallItem";
 import GuestJoin from "./components/GuestJoin";
 import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
@@ -151,6 +152,8 @@ export default function App() {
   const [upgrade, setUpgrade] = useState(null); // null = closed, otherwise the reason shown at the top
   const [billingNote, setBillingNote] = useState("");
   const [fetching, setFetching] = useState(0); // calendar requests in flight -> thin progress bar at the top
+  // No network: the app shows the last calendar it saved on this device (PWA, 2026-11-25).
+  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
   const [nameDraft, setNameDraft] = useState("");
   const [nameError, setNameError] = useState("");
 
@@ -228,7 +231,10 @@ export default function App() {
   const [planRefresh, setPlanRefresh] = useState(0);
   const [bookingPageOpen, setBookingPageOpen] = useState(false);
   // Sidebar tab, remembered between visits.
-  const [sideTab, setSideTab] = useState(() => localStorage.getItem("sideTab") || "groups");
+  // ?tab=plan: the installed app's "Plan" shortcut.
+  const [sideTab, setSideTab] = useState(() =>
+    (["plan", "groups", "calendars", "busy"].includes(new URLSearchParams(window.location.search).get("tab"))
+      ? new URLSearchParams(window.location.search).get("tab") : null) || localStorage.getItem("sideTab") || "groups");
   function pickSideTab(tab) {
     setSideTab(tab);
     localStorage.setItem("sideTab", tab);
@@ -456,6 +462,10 @@ export default function App() {
         return res.json();
       })
       .then(data => {
+        // Remembered so the app can open offline (installed app with no signal) without signing you out.
+        localStorage.setItem("userEmail", data.email || "");
+        localStorage.setItem("myName", data.name || "");
+        localStorage.setItem("isGuest", data.guest ? "1" : "");
         setMyName(data.name || "");
         setHasCustomName(!!data.custom_name);
         setIsGuest(!!data.guest);
@@ -463,7 +473,15 @@ export default function App() {
         setEmail(data.email);
         renewToken(); // keeps an active user signed in (see session.js)
       })
-      .catch(() => {
+      .catch((err) => {
+        // No network (fetch itself failed): stay signed in and show what this device saved last time.
+        if (err instanceof TypeError && localStorage.getItem("userEmail")) {
+          setMyName(localStorage.getItem("myName") || "");
+          setIsGuest(!!localStorage.getItem("isGuest"));
+          setEmail(localStorage.getItem("userEmail"));
+          setOffline(true);
+          return;
+        }
         // An expired/invalid token shouldn't leave the app stuck showing
         // stale data behind the gate - drop it and fall back to signed out.
         clearToken();
@@ -524,6 +542,22 @@ export default function App() {
       setBillingNote(err.message);
     }
   }
+
+  // Back online: reload so the calendar is current again.
+  useEffect(() => {
+    const goOffline = () => setOffline(true);
+    const goOnline = () => {
+      setOffline(false);
+      if (localStorage.getItem("userId")) fetchAvailability(manualBusy).catch(() => {});
+    };
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // The session check is done (signed in or not): fade the logo loading screen away.
   useEffect(() => {
@@ -849,6 +883,7 @@ export default function App() {
                 {billing?.can_manage && (
                   <button role="menuitem" onClick={() => { setMenuOpen(false); openBillingPortal(); }}>Manage billing</button>
                 )}
+                <InstallItem onDone={() => setMenuOpen(false)} notify={showToast} />
                 <button role="menuitem" onClick={() => { setMenuOpen(false); clearAll(); }}>Clear my schedule</button>
                 <hr />
                 {isGuest && <div className="dash-menu-plan">Guest · signing out ends this guest visit</div>}
@@ -858,6 +893,12 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {offline && (
+        <div className="billing-note offline-note" role="status">
+          <span>You're offline. This is the calendar saved on this device; changes need a connection.</span>
+        </div>
+      )}
 
       {billingNote && (
         <div className="billing-note" role="status">

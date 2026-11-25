@@ -16,6 +16,7 @@ import GroupsPanel from "./components/GroupsPanel";
 import UpgradeModal from "./components/UpgradeModal";
 import BookModal from "./components/BookModal";
 import PlanPanel from "./components/PlanPanel";
+import PollsCard from "./components/PollsCard";
 import GuestJoin from "./components/GuestJoin";
 import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
@@ -979,7 +980,18 @@ export default function App() {
               onBook={setBookSlot}
               onChanged={() => fetchAvailability(manualBusy).catch(() => {})}
               notify={showToast}
-            />
+            >
+              {activeGroup && (
+                <PollsCard
+                  authHeaders={authHeaders}
+                  group={activeGroup}
+                  freeTimes={freeTimes}
+                  refreshKey={planRefresh}
+                  notify={showToast}
+                  onBooked={() => { setPlanRefresh((n) => n + 1); fetchAvailability(manualBusy).catch(() => {}); }}
+                />
+              )}
+            </PlanPanel>
           </section>
 
           <section className="side-section" hidden={sideTab !== "groups"}>

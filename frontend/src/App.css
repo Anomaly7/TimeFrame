@@ -1545,3 +1545,23 @@
 .paint-cell.half { border-top-style: dashed; }
 .paint-cell.on { background: var(--tl-busy-bg); box-shadow: inset 3px 0 0 var(--tl-busy); }
 .paint-cell:hover { filter: brightness(0.96); }
+
+/* ---- Polls (2026-11-25) ---- */
+.poll { padding: 0.6rem 0 0.2rem; border-top: 1px solid var(--border); }
+.poll:first-of-type { border-top: none; }
+.poll-head { display: flex; flex-direction: column; margin-bottom: 0.4rem; }
+.poll-head small { color: var(--text-muted); font-size: 0.76rem; }
+.poll-options { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.poll-option { width: 100%; display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 9px;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 0.84rem; cursor: pointer; text-align: left; }
+.poll-option:hover:not(:disabled) { border-color: var(--accent); }
+.poll-option.mine { border-color: var(--accent); background: var(--accent-soft); }
+.poll-option.winner { border-color: var(--success); background: var(--success-soft); }
+.poll-option:disabled { cursor: default; }
+.poll-check { width: 1.1rem; height: 1.1rem; border-radius: 5px; border: 1.5px solid var(--border); display: grid; place-items: center;
+  font-size: 0.72rem; color: var(--accent); flex: none; }
+.poll-option.mine .poll-check { border-color: var(--accent); background: var(--surface); }
+.poll-time { flex: 1; }
+.poll-count { font-weight: 700; color: var(--text-muted); }
+.poll-pick { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; width: 100%; }
+.poll-new { margin-bottom: 0.4rem; }

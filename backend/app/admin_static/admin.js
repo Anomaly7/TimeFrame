@@ -73,6 +73,7 @@ async function loadOverview() {
     [h.tax ? "ok" : "warn", "Sales tax " + (h.tax ? "added on top at checkout" : "not charged yet (turn on after GST/HST registration)")],
     ["ok", "Coupon " + (h.coupon ? "set" : "not set")],
     [h.alerts ? "ok" : "bad", "Phone alerts " + (h.alerts ? "on" : "OFF: set OWNER_NTFY_TOPIC")],
+    [h.maintenance ? "warn" : "ok", h.maintenance ? "App OFF: down for maintenance" : "App on for everyone"],
     ["ok", "Server up since " + when(h.upSince)],
   ];
   $("health").replaceChildren(...items.map(([cls, text]) => el("li", { class: cls, text })));
@@ -155,17 +156,54 @@ $("banForm").addEventListener("submit", async (e) => {
   } catch (err) { show(err); }
 });
 
+// ---- maintenance mode ----
+let mState = null;
+function toLocalInput(t) {
+  if (!t) return "";
+  const d = new Date(t * 1000), p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function paintMaintenance(s) {
+  mState = s;
+  $("mBanner").hidden = !s.on;
+  $("mDot").className = "mdot " + (s.on ? "down" : "up");
+  $("mTitle").textContent = s.on ? "Down for maintenance" : "TimeFrame is up";
+  $("mSub").textContent = s.on
+    ? "Since " + when(s.since) + (s.until ? " · back by " + when(s.until) : "")
+    : "Everyone can use the app.";
+  $("mOn").hidden = s.on; $("mSave").hidden = !s.on; $("mOff").hidden = !s.on;
+  if (document.activeElement !== $("mMsg")) $("mMsg").value = s.message || "";
+  if (document.activeElement !== $("mUntil")) $("mUntil").value = toLocalInput(s.until);
+}
+async function loadMaintenance() { paintMaintenance(await api("maintenance")); }
+async function saveMaintenance(on, confirmText, btn) {
+  if (confirmText && !window.confirm(confirmText)) return;
+  const v = $("mUntil").value, until = v ? Math.floor(new Date(v).getTime() / 1000) : null;
+  btn.disabled = true;
+  try {
+    const r = await api("maintenance", { on, message: $("mMsg").value, until });
+    msg("actMsg", r.message, "ok"); paintMaintenance(r.state); loadAudit(); loadOverview().catch(() => {});
+  } catch (err) { show(err); } finally { btn.disabled = false; }
+}
+$("mForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  saveMaintenance(true, "Turn TimeFrame off for everyone? They'll see the maintenance screen until you turn it back on.", $("mOn"));
+});
+$("mSave").addEventListener("click", () => saveMaintenance(true, null, $("mSave")));
+$("mOff").addEventListener("click", () => saveMaintenance(false, null, $("mOff")));
+
 // ---- audit ----
 async function loadAudit() {
   const d = await api("audit");
   const label = { login: "Signed in", login_failed: "Wrong sign-in", grant_pro: "Gave Pro", revoke_pro: "Removed Pro", recheck_stripe: "Re-checked Stripe",
-    delete_account: "Deleted account", ban: "Banned", unban: "Unbanned" };
+    delete_account: "Deleted account", ban: "Banned", unban: "Unbanned",
+    maintenance_on: "App OFF (maintenance)", maintenance_edit: "Edited maintenance message", maintenance_off: "App back ON" };
   $("audit").replaceChildren(...d.events.map((e) => el("li", { class: e.action === "login_failed" ? "bad" : "" },
     when(e.at) + " · " + (label[e.action] || e.action) + " · " + e.ip + (e.detail && e.action !== "login" ? " · " + e.detail : ""))));
 }
 
 // ---- task bar: one section at a time (remembered in the address, e.g. /admin#accounts) ----
-const TABS = ["overview", "accounts", "health", "activity"];
+const TABS = ["overview", "accounts", "health", "maintenance", "activity"];
 function openTab(name) {
   if (!TABS.includes(name)) name = "overview";
   for (const b of document.querySelectorAll("#tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
@@ -185,6 +223,6 @@ async function start() {
     msg("actMsg", "Overview didn't load: " + err.message, "err"); // never leave a blank page
   }
   $("login").hidden = true; $("app").hidden = false;
-  await Promise.all([loadUsers().catch(show), loadAudit().catch(show), loadBans().catch(show)]);
+  await Promise.all([loadUsers().catch(show), loadAudit().catch(show), loadBans().catch(show), loadMaintenance().catch(show)]);
 }
 start();

@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from app.google_auth import router as google_router
 from dotenv import load_dotenv
 from app.group_availability import router as group_router
@@ -10,6 +11,7 @@ from app.apple_calendar import router as apple_router
 from app.notion_auth import router as notion_router
 from app.billing import router as billing_router
 from app.admin import router as admin_router
+import app.maintenance as maintenance
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
 from app.db import conn, current_request
@@ -38,12 +40,32 @@ app.add_middleware(
 )
 
 
+def _maintenance_response(request: Request):
+    """The app is switched off for maintenance (admin page). Browsers opening an API address directly (a sign-in
+    link, say) go to the website, which shows the maintenance screen; everything else gets a 503 the site reads."""
+    site = next((o for o in ALLOWED_ORIGINS if o.startswith("https://")), ALLOWED_ORIGINS[0])
+    if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse(site + "/", status_code=302)
+    response = JSONResponse(
+        {"detail": "TimeFrame is down for maintenance. Please try again soon.", **maintenance.public()},
+        status_code=503, headers={"Retry-After": "120", "Cache-Control": "no-store"})
+    # This answer skips the CORS layer, so add its header here, or the website couldn't read why the call failed.
+    origin = request.headers.get("origin")
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+    return response
+
+
 @app.middleware("http")
 async def mark_request(request: Request, call_next):
     # Lets the database layer drop anything a previous request left unfinished.
     token = current_request.set(object())
     try:
-        response = await call_next(request)
+        if maintenance.blocks(request.url.path, request.method):
+            response = _maintenance_response(request)
+        else:
+            response = await call_next(request)
     finally:
         current_request.reset(token)
     # Safe defaults on every answer (the admin page sets stricter ones of its own): browsers must not guess file
@@ -60,6 +82,7 @@ app.include_router(email_auth_router)
 app.include_router(apple_router)
 app.include_router(notion_router)
 app.include_router(billing_router)
+app.include_router(maintenance.router)  # public GET /status (maintenance mode on/off)
 app.include_router(admin_router)  # owner-only /admin (off until ADMIN_PASSWORD + ADMIN_TOTP_SECRET are set)
 
 @app.get("/")

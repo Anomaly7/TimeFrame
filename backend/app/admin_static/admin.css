@@ -46,3 +46,13 @@ td.actions button { margin: 0 4px 4px 0; }
 [data-panel][hidden] { display: none; }
 .page-msg { max-width: 1100px; margin: -6px auto 10px; }
 .page-msg:empty { display: none; }
+/* Maintenance (2026-11-25) */
+textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0003; color: var(--text); font: inherit; resize: vertical; }
+input[type="datetime-local"] { max-width: 260px; color-scheme: dark; }
+.mstate { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 6px; }
+.mstate b { font-size: 16px; }
+.mdot { width: 12px; height: 12px; border-radius: 50%; background: var(--dim); flex: none; }
+.mdot.up { background: var(--good); box-shadow: 0 0 10px var(--good); }
+.mdot.down { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.banner { max-width: 1100px; margin: -6px auto 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--warn); color: var(--warn); background: #f5b84a14; font-size: 14px; }
+.banner a { color: var(--warn); margin-left: 6px; }

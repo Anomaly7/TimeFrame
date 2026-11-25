@@ -32,9 +32,35 @@
     <button type="button" role="tab" data-tab="overview">Overview</button>
     <button type="button" role="tab" data-tab="accounts">Accounts</button>
     <button type="button" role="tab" data-tab="health">Health</button>
+    <button type="button" role="tab" data-tab="maintenance">Maintenance</button>
     <button type="button" role="tab" data-tab="activity">Activity</button>
   </nav>
+  <p id="mBanner" class="banner" hidden>TimeFrame is <b>down for maintenance</b>. Everyone sees the maintenance screen. <a href="#maintenance">Turn it off</a></p>
   <p id="actMsg" class="msg page-msg" role="status"></p>
+
+  <section class="card" data-panel="maintenance">
+    <h2>Maintenance</h2>
+    <div class="mstate">
+      <span id="mDot" class="mdot"></span>
+      <div><b id="mTitle">Loading…</b><div id="mSub" class="dim"></div></div>
+    </div>
+    <form id="mForm">
+      <label>Message on the maintenance screen (optional)
+        <textarea id="mMsg" maxlength="300" rows="3" placeholder="We're upgrading TimeFrame. Your calendars and groups are safe."></textarea>
+      </label>
+      <label>Back by (optional, shown to everyone)
+        <input id="mUntil" type="datetime-local">
+      </label>
+      <div class="row">
+        <button type="submit" id="mOn" class="danger">Turn app off for maintenance</button>
+        <button type="button" id="mSave" class="ghost" hidden>Update message</button>
+        <button type="button" id="mOff" hidden>Turn app back on</button>
+      </div>
+    </form>
+    <p class="dim">While it's on, the website and the Chrome extension can't load anything: people see the maintenance screen, and
+      it reloads by itself within 30 seconds of you turning the app back on. This admin page and the health checks keep working.
+      The switch is saved, so restarting or redeploying the server doesn't turn it off. Your phone gets an alert on each change.</p>
+  </section>
 
   <section class="card" data-panel="overview">
     <h2>Overview</h2>

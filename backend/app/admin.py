@@ -40,6 +40,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 
 from app import billing
+import app.maintenance as maintenance
 from app.auth_utils import ALGORITHM, RateLimiter, client_ip
 from app.db import conn
 
@@ -336,6 +337,7 @@ def overview(ip: str = Depends(require_admin)):
             "tax": billing.COLLECT_TAX, "trialDays": billing.TRIAL_DAYS,
             "prices": {k: billing._money(v) for k, v in billing.PRICES.items()}, "currency": billing.CURRENCY.upper(),
             "alerts": bool(os.getenv("OWNER_NTFY_TOPIC", "").strip()), "upSince": STARTED,
+            "maintenance": maintenance.state()["on"],
         },
         "you": ip,
     })
@@ -503,6 +505,43 @@ def change_ban(body: dict = Body(...), ip: str = Depends(require_admin)):
     audit(ip, "ban", email + (f" ({reason})" if reason else "") + (" + deleted" if body.get("delete") else ""))
     alert(f"TimeFrame admin: banned {email}.")
     return _json({"ok": True, "message": f"{email} is banned: it can't sign in or sign up, and any open sessions stop working.{note}"})
+
+
+# ---- maintenance mode (Sam, 2026-11-25): switch the whole app off; /admin keeps working ----
+@router.get("/admin/api/maintenance")
+def get_maintenance(ip: str = Depends(require_admin)):
+    return _json(maintenance.state(fresh=True))
+
+
+@router.post("/admin/api/maintenance")
+def change_maintenance(body: dict = Body(...), ip: str = Depends(require_admin)):
+    on = body.get("on")
+    if not isinstance(on, bool):
+        raise HTTPException(status_code=400, detail="Say whether maintenance is on or off.")
+    until = body.get("until")
+    if until is not None:
+        try:
+            until = int(until)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="The 'back by' time isn't a valid time.")
+        if not time.time() - 60 < until < time.time() + 30 * 86400:
+            raise HTTPException(status_code=400, detail="Pick a 'back by' time in the next 30 days.")
+    message = str(body.get("message") or "")
+    if len(message.strip()) > maintenance.MAX_MESSAGE:
+        raise HTTPException(status_code=400, detail=f"Keep the message under {maintenance.MAX_MESSAGE} characters.")
+    was = maintenance.state(fresh=True)["on"]
+    s = maintenance.set_state(on, message, until)
+    if on:
+        audit(ip, "maintenance_on" if not was else "maintenance_edit", s["message"][:200])
+        if not was:
+            alert("TimeFrame is now DOWN for maintenance (switched on from the admin page). Turn it off there when you're done.")
+        text = "Maintenance is ON. Everyone sees the maintenance screen; this admin page still works." if not was else "Maintenance message updated."
+    else:
+        audit(ip, "maintenance_off")
+        if was:
+            alert("TimeFrame is back UP: maintenance switched off.")
+        text = "Maintenance is OFF. TimeFrame is back up for everyone." if was else "Maintenance was already off."
+    return _json({"ok": True, "message": text, "state": s})
 
 
 @router.get("/admin/api/audit")

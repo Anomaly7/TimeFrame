@@ -1434,7 +1434,7 @@
 .g-icon.done { color: var(--success); font-size: 0.9rem; }
 .g-more { position: relative; flex: none; }
 .g-menu {
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 41; width: 190px; padding: 0.3rem;
+  position: fixed; z-index: 41; width: 190px; padding: 0.3rem;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.06);
 }
@@ -1489,3 +1489,5 @@
 @media (max-width: 900px) {
   .dash-side { display: block; }
 }
+.g-sub .g-badge { margin-right: 6px; vertical-align: 1px; }
+.g-sub { display: block; }

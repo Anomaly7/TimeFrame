@@ -51,6 +51,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
   const [confirmLeave, setConfirmLeave] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [menuFor, setMenuFor] = useState(null); // group whose ⋯ menu is open
+  const [menuPos, setMenuPos] = useState({});
   const [managing, setManaging] = useState(null); // group whose member list is open
   const [confirmKick, setConfirmKick] = useState(null); // `${groupId}|${memberId}`
   const [copied, setCopied] = useState(null);
@@ -285,9 +286,9 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                     <span className="g-text">
                       <strong>
                         <span className="g-name">{g.name || `Unnamed group (${g.id})`}</span>
-                        {g.is_admin && <span className="g-badge" title="You're the admin">Admin</span>}
                       </strong>
                       <span className="g-sub">
+                        {g.is_admin && <span className="g-badge" title="You're the admin">Admin</span>}
                         {g.members.length} {g.members.length === 1 ? "member" : "members"}
                         {others.length > 0 && ` · ${others.slice(0, 2).map((m) => m.name).join(", ")}${others.length > 2 ? ` +${others.length - 2}` : ""}`}
                       </span>
@@ -314,14 +315,23 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                       aria-label="More actions"
                       title="More actions"
                       aria-expanded={menuFor === g.id}
-                      onClick={() => setMenuFor(menuFor === g.id ? null : g.id)}
+                      onClick={(e) => {
+                        if (menuFor === g.id) return setMenuFor(null);
+                        // Fixed position so the sidebar's scroll box can't clip it; opens upward near the bottom.
+                        const r = e.currentTarget.getBoundingClientRect();
+                        const up = r.bottom + 260 > window.innerHeight;
+                        setMenuPos(up
+                          ? { bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right }
+                          : { top: r.bottom + 4, right: window.innerWidth - r.right });
+                        setMenuFor(g.id);
+                      }}
                     >
                       ⋯
                     </button>
                     {menuFor === g.id && (
                       <>
                         <div className="dash-menu-backdrop" onClick={() => setMenuFor(null)} />
-                        <div className="g-menu" role="menu">
+                        <div className="g-menu" role="menu" style={menuPos}>
                           <button role="menuitem" onClick={() => { setMenuFor(null); copy(g.id); }}>Copy invite link</button>
                           {canShare && <button role="menuitem" onClick={() => { setMenuFor(null); share(linkFor(g.id)); }}>Share…</button>}
                           {g.is_admin && (

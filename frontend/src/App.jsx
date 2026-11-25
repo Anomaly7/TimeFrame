@@ -916,12 +916,15 @@ export default function App() {
             <ImportIcs onImported={() => fetchAvailability(manualBusy)} />
           </section>
 
-          <section className="side-section" hidden={sideTab !== "busy"}>
-            <AvailabilityForm
-              manualBusy={manualBusy}
-              setManualBusy={setManualBusy}
-            />
-          </section>
+          {/* Mounted only while open: the time wheels scroll to their value on mount, which fails while hidden. */}
+          {sideTab === "busy" && (
+            <section className="side-section">
+              <AvailabilityForm
+                manualBusy={manualBusy}
+                setManualBusy={setManualBusy}
+              />
+            </section>
+          )}
         </aside>
       </div>
     </div>

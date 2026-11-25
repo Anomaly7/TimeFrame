@@ -1620,3 +1620,17 @@
 .bp-settings { max-width: 500px; }
 .bp-enabled { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; font-weight: 600; }
 .field textarea { resize: vertical; }
+
+/* ---- Group notes (2026-11-25) ---- */
+.note-pinned { margin: 0 0 0.6rem; padding: 0.55rem 0.7rem; border-radius: 10px; background: #fff7e0; color: #7a5300; font-size: 0.86rem; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .note-pinned { background: rgba(250, 204, 21, 0.14); color: #fcd34d; } }
+.note-form { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+.note-form input { flex: 1; min-width: 0; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 9px; font: inherit;
+  font-size: 0.85rem; background: var(--surface); color: var(--text); }
+.notes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; max-height: 280px; overflow-y: auto; }
+.notes-list li { padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--surface-muted); font-size: 0.85rem; }
+.notes-list li.mine { background: var(--accent-soft); }
+.notes-list p { margin: 0.1rem 0 0; overflow-wrap: anywhere; }
+.note-meta { display: flex; align-items: center; gap: 0.4rem; }
+.note-meta small { color: var(--text-muted); font-size: 0.72rem; }
+.note-meta .link-btn { margin-left: auto; font-size: 0.75rem; }

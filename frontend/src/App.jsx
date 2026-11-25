@@ -20,6 +20,7 @@ import PollsCard from "./components/PollsCard";
 import NotificationsBell from "./components/NotificationsBell";
 import WeeklyFinder from "./components/WeeklyFinder";
 import BookingPageSettings from "./components/BookingPageSettings";
+import NotesCard from "./components/NotesCard";
 import GuestJoin from "./components/GuestJoin";
 import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
@@ -1019,6 +1020,7 @@ export default function App() {
                   onBooked={() => { setPlanRefresh((n) => n + 1); fetchAvailability(manualBusy).catch(() => {}); }}
                 />
               )}
+              {activeGroup && <NotesCard authHeaders={authHeaders} group={activeGroup} refreshKey={planRefresh} notify={showToast} />}
               <WeeklyFinder authHeaders={authHeaders} group={activeGroup} settings={effectiveSettings} onBook={setBookSlot} />
             </PlanPanel>
           </section>

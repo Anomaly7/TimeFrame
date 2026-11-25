@@ -576,6 +576,8 @@ def delete_group(group_id: str = Query(...), user_id: str = Depends(get_current_
     conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
     conn.execute("UPDATE bookings SET cancelled = 1 WHERE group_id = ?", (group_id,))
     conn.execute("UPDATE polls SET closed = 1 WHERE group_id = ?", (group_id,))
+    conn.execute("DELETE FROM group_notes WHERE group_id = ?", (group_id,))
+    conn.execute("DELETE FROM group_prefs WHERE group_id = ?", (group_id,))
     conn.execute(
         "INSERT INTO deleted_groups (id, at_ms) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
         (group_id, int(datetime.now().timestamp() * 1000))

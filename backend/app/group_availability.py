@@ -70,7 +70,19 @@ def clean_settings(body: dict) -> dict:
         "meetingLength": length,
         "excludeWeekends": bool(body.get("excludeWeekends")),
         "timePrefs": prefs,
+        "bufferMinutes": clean_buffer(body.get("bufferMinutes", 0)),
     }
+
+
+def clean_buffer(value) -> int:
+    """Travel time kept free before and after every busy block (0-60 minutes)."""
+    try:
+        minutes = int(value or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Travel buffer must be a number of minutes.")
+    if not 0 <= minutes <= 60:
+        raise HTTPException(status_code=400, detail="Travel buffer must be 0 to 60 minutes.")
+    return minutes
 
 
 def owned_group_count(user_id: str) -> int:
@@ -103,7 +115,9 @@ def merge_users_availability(
     # browser) would wipe them just by opening the app.
     keep_manual: bool = Query(False),
     # Ranked times of day for the best slot, e.g. "afternoon,morning,evening".
-    prefer: str = Query(None)
+    prefer: str = Query(None),
+    # Minutes kept free before/after every busy block (travel time); Pro, or the group's setting.
+    buffer: int = Query(0, ge=0, le=60),
     ):
     prefer_order = parse_prefer(prefer)
 
@@ -119,6 +133,7 @@ def merge_users_availability(
         day_end = group_settings["dayEnd"]
         prefer_order = group_settings["timePrefs"]
         exclude_weekends = group_settings["excludeWeekends"]
+        buffer = group_settings.get("bufferMinutes", 0)
     else:
         # Custom settings are a Pro feature: a free account always gets the defaults,
         # whatever its browser sends.
@@ -126,6 +141,8 @@ def merge_users_availability(
         if not is_pro(user_id):
             min_minutes, day_start, day_end = 30, "08:00", "22:00"
             prefer_order = ["afternoon", "morning", "evening"]
+            buffer = 0
+    pad = timedelta(minutes=buffer)
 
     # The viewer's own current timezone - "today", business hours, and
     # anything they enter manually are all relative to where THEY are right
@@ -237,6 +254,7 @@ def merge_users_availability(
     all_busy = []
     busy_output = []
     seen_intervals = set()
+    busy_by_member = {uid: [] for uid in member_ids}  # for "everyone but one" suggestions
 
     for uid in member_ids:
         rows = conn.execute(
@@ -266,7 +284,8 @@ def merge_users_availability(
                 continue
             seen_intervals.add(key)
 
-            all_busy.append((start_dt, end_dt))
+            all_busy.append((start_dt - pad, end_dt + pad))
+            busy_by_member[uid].append((start_dt - pad, end_dt + pad))
 
             busy_output.append({
                 "date": max(start_dt, window_start).date().isoformat(),
@@ -298,7 +317,8 @@ def merge_users_availability(
             b_end = datetime.fromisoformat(b["end"]).astimezone(viewer_tz)
             if not (b_start < window_end and b_end > window_start):
                 continue
-            all_busy.append((b_start, b_end))
+            all_busy.append((b_start - pad, b_end + pad))
+            busy_by_member[uid].append((b_start - pad, b_end + pad))
             viewer_sees = mine or (b["group_id"] and b["group_id"] == group_id and in_group)
             if viewer_sees:
                 if b["id"] not in seen_bookings:
@@ -349,7 +369,33 @@ def merge_users_availability(
 
     results.sort(key=lambda x: x["score"], reverse=True)
 
+    # ---- Almost works: free for everyone but one person ----
+    # Only when the whole group barely fits (fewer than 3 times), and only for groups of 3+.
+    almost = []
+    if len(member_ids) >= 3 and len(results) < 3:
+        full = {(r["start"], r["end"]) for r in results}
+        for missing in member_ids:
+            others = merge_intervals([iv for uid in member_ids if uid != missing for iv in busy_by_member[uid]])
+            theirs = busy_by_member[missing]
+            for target_date in sorted(date_range):
+                if exclude_weekends and target_date.weekday() >= 5:
+                    continue
+                for start, end in find_free_time(others, target_date=target_date, day_start=day_start_time,
+                                                 day_end=day_end_time, min_minutes=min_minutes, tz=viewer_tz,
+                                                 prefer=prefer_order):
+                    if (start.isoformat(), end.isoformat()) in full or not any(s < end and e > start for s, e in theirs):
+                        continue
+                    almost.append({
+                        "date": target_date.isoformat(), "start": start.isoformat(), "end": end.isoformat(),
+                        "duration_minutes": int((end - start).total_seconds() / 60),
+                        "missing": "You" if missing == user_id else names[missing], "missing_id": missing,
+                        "score": score_slot(start, end, day_start_time, day_end_time, 0, prefer_order),
+                    })
+        almost.sort(key=lambda x: x["score"], reverse=True)
+        almost = almost[:5]
+
     return {
+        "almost_free": almost,
         "busy_times": busy_output,
         "ranked_free_time": results,
         "bookings": visible_bookings,
@@ -565,3 +611,113 @@ def leave_group(group_id: str = Query(...), user_id: str = Depends(get_current_u
         conn.execute("UPDATE groups SET owner = NULL WHERE id = ?", (group_id,))
     conn.commit()
     return {"left": True}
+
+
+@router.get("/availability/recurring")
+def recurring_slots(
+    user_id: str = Depends(get_current_user),
+    group: str = Query(None),
+    weeks: int = Query(10, ge=2, le=16),
+    timezone: str = Query(None),
+    length: int = Query(None, ge=5, le=12 * 60),
+    day_start: str = Query(None),
+    day_end: str = Query(None),
+    exclude_weekends: bool = Query(False),
+    buffer: int = Query(0, ge=0, le=60),
+    prefer: str = Query(None),
+):
+    """Best weekly time: the weekday + start time that's free for everyone in the most of the next `weeks` weeks
+    ("Tuesdays 3:00 PM: free 9 of 10 weeks"). Uses the group's settings, or yours (Pro) / the defaults."""
+    import bisect
+    from app.billing import is_pro
+    from app.bookings import bookings_for_user
+    try:
+        tz = ZoneInfo(timezone) if timezone else PST
+    except Exception:
+        tz = PST
+    in_group = bool(group and GROUP_ID_RE.match(group) and is_member(group, user_id))
+    settings = (group_row(group) or (None, None, None))[2] if in_group else None
+    if settings:
+        day_start, day_end = time.fromisoformat(settings["dayStart"]), time.fromisoformat(settings["dayEnd"])
+        minutes, weekends_off, prefs = settings["meetingLength"], settings["excludeWeekends"], settings["timePrefs"]
+        buffer = settings.get("bufferMinutes", 0)
+    elif is_pro(user_id):
+        # Your own settings (Pro), sent by the app.
+        try:
+            day_start = time.fromisoformat(day_start or "08:00")
+            day_end = time.fromisoformat(day_end or "22:00")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Day start/end must be times like 08:00.")
+        if day_end <= day_start:
+            raise HTTPException(status_code=400, detail="Day end must be after day start.")
+        minutes, weekends_off = length or 30, exclude_weekends
+        prefs = parse_prefer(prefer) or ["afternoon", "morning", "evening"]
+    else:
+        day_start, day_end, minutes, weekends_off, prefs, buffer = time(8), time(22), 30, False, ["afternoon", "morning", "evening"], 0
+    pad = timedelta(minutes=buffer)
+
+    members = [user_id]
+    if in_group:
+        seen = {user_id.strip().lower()}
+        for (uid,) in conn.execute("SELECT user_id FROM group_members WHERE group_id = ?", (group,)).fetchall():
+            if uid.strip().lower() not in seen:
+                seen.add(uid.strip().lower())
+                members.append(uid)
+
+    today = datetime.now(tz).date()
+    window_start = datetime.combine(today, time.min, tzinfo=tz)
+    window_end = window_start + timedelta(days=7 * weeks + 1)
+    busy = []
+    for uid in members:
+        for start, end, source in conn.execute(
+                "SELECT start, end_time, source FROM busy_times WHERE user_id = ?", (uid,)).fetchall():
+            if source != "manual" and is_all_day_block(start, end):
+                continue
+            s, e = datetime.fromisoformat(start), datetime.fromisoformat(end)
+            if s < window_end and e > window_start:
+                busy.append((s - pad, e + pad))
+        for b in bookings_for_user(uid):
+            s, e = datetime.fromisoformat(b["start"]), datetime.fromisoformat(b["end"])
+            if s < window_end and e > window_start:
+                busy.append((s - pad, e + pad))
+    merged = merge_intervals(busy)
+    starts = [s for s, _ in merged]
+
+    def is_free(s, e):
+        # merged is sorted and non-overlapping, so of the blocks starting before e only the last can reach past s.
+        i = bisect.bisect_left(starts, e)
+        return i == 0 or merged[i - 1][1] <= s
+
+    length_td = timedelta(minutes=minutes)
+    candidates = []
+    first_day = today + timedelta(days=1)  # from tomorrow, so every week counts fully
+    for offset in range(7):
+        day = first_day + timedelta(days=offset)
+        if weekends_off and day.weekday() >= 5:
+            continue
+        t = datetime.combine(day, day_start, tzinfo=tz)
+        last = datetime.combine(day, day_end, tzinfo=tz) - length_td
+        while t <= last:
+            free_weeks = 0
+            for w in range(weeks):
+                s = datetime.combine(day + timedelta(weeks=w), t.time(), tzinfo=tz)
+                if is_free(s, s + length_td):
+                    free_weeks += 1
+            if free_weeks:
+                candidates.append({
+                    "weekday": day.strftime("%A"), "time": t.strftime("%H:%M"),
+                    "start": t.isoformat(), "end": (t + length_td).isoformat(),
+                    "free_weeks": free_weeks, "weeks": weeks,
+                    "score": score_slot(t, t + length_td, day_start, day_end, 0, prefs),
+                })
+            t += timedelta(minutes=30)
+    candidates.sort(key=lambda c: (c["free_weeks"], c["score"]), reverse=True)
+    picked, per_day = [], {}
+    for c in candidates:
+        if per_day.get(c["weekday"], 0) >= 2:
+            continue  # spread the suggestions over different days
+        per_day[c["weekday"]] = per_day.get(c["weekday"], 0) + 1
+        picked.append(c)
+        if len(picked) == 5:
+            break
+    return {"slots": picked, "weeks": weeks, "minutes": minutes, "people": len(members)}

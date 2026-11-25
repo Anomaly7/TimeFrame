@@ -91,6 +91,21 @@ export default function SettingsPanel({ settings, setSettings, readOnly = false,
             <option value={120}>2 hours</option>
           </select>
         </label>
+        <label className="settings-field">
+          Travel buffer
+          <select
+            value={settings.bufferMinutes || 0}
+            onChange={(e) => update({ bufferMinutes: Number(e.target.value) })}
+            title="Time kept free before and after every busy block"
+          >
+            <option value={0}>None</option>
+            <option value={10}>10 min each side</option>
+            <option value={15}>15 min each side</option>
+            <option value={30}>30 min each side</option>
+            <option value={45}>45 min each side</option>
+            <option value={60}>1 hour each side</option>
+          </select>
+        </label>
       </div>
       </fieldset>
     </div>

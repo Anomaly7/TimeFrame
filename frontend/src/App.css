@@ -1582,3 +1582,8 @@
 .bell-text { display: flex; flex-direction: column; }
 .bell-text small { color: var(--text-muted); font-size: 0.72rem; }
 .bell-empty { padding: 0 0.5rem 0.4rem; }
+
+/* ---- Weekly meeting finder (2026-11-25) ---- */
+.weekly-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.weekly-controls select { padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 0.84rem;
+  background: var(--surface); color: var(--text); }

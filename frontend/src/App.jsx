@@ -18,6 +18,7 @@ import BookModal from "./components/BookModal";
 import PlanPanel from "./components/PlanPanel";
 import PollsCard from "./components/PollsCard";
 import NotificationsBell from "./components/NotificationsBell";
+import WeeklyFinder from "./components/WeeklyFinder";
 import GuestJoin from "./components/GuestJoin";
 import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS = {
   excludeWeekends: false,
   meetingLength: 30,
   timePrefs: ["afternoon", "morning", "evening"],
+  bufferMinutes: 0,
 };
 
 function ymd(date) {
@@ -220,6 +222,7 @@ export default function App() {
   // Booking a free slot (BookModal) and the booked meetings in view.
   const [bookSlot, setBookSlot] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [almostFree, setAlmostFree] = useState([]); // free for everyone but one person
   const [planRefresh, setPlanRefresh] = useState(0);
   // Sidebar tab, remembered between visits.
   const [sideTab, setSideTab] = useState(() => localStorage.getItem("sideTab") || "groups");
@@ -538,7 +541,7 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveSettings.dayStart, effectiveSettings.dayEnd, effectiveSettings.meetingLength,
-      timePrefsKey, effectiveSettings.excludeWeekends, activeGroupId, viewMode, viewDate]);
+      timePrefsKey, effectiveSettings.excludeWeekends, effectiveSettings.bufferMinutes, activeGroupId, viewMode, viewDate]);
 
   // Your saved manual blocks live on the server; load them once signed in
   // so every device shows (and keeps) the same list. Until that's done,
@@ -605,7 +608,7 @@ export default function App() {
 
     const { startOffset, days } = getRequestRange(viewMode, viewDate);
 
-    const url = `${API_URL}/availability/merge?min_minutes=${effectiveSettings.meetingLength}&day_start=${effectiveSettings.dayStart}&day_end=${effectiveSettings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}&prefer=${effectiveSettings.timePrefs.join(",")}${save ? "" : "&keep_manual=1"}`;
+    const url = `${API_URL}/availability/merge?min_minutes=${effectiveSettings.meetingLength}&day_start=${effectiveSettings.dayStart}&day_end=${effectiveSettings.dayEnd}&timezone=${encodeURIComponent(MY_TIMEZONE)}&days=${days}&start_offset=${startOffset}${groupParam}&prefer=${effectiveSettings.timePrefs.join(",")}&buffer=${effectiveSettings.bufferMinutes || 0}${save ? "" : "&keep_manual=1"}`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -629,6 +632,7 @@ export default function App() {
     setBusyTimes(data.busy_times);
     setFreeTimes(data.ranked_free_time);
     setBookings(data.bookings || []);
+    setAlmostFree(data.almost_free || []);
     } finally {
       setFetching((n) => Math.max(0, n - 1));
     }
@@ -982,6 +986,7 @@ export default function App() {
               authHeaders={authHeaders}
               group={activeGroup}
               freeTimes={freeTimes}
+              almostFree={almostFree}
               refreshKey={planRefresh}
               onBook={setBookSlot}
               onChanged={() => fetchAvailability(manualBusy).catch(() => {})}
@@ -997,6 +1002,7 @@ export default function App() {
                   onBooked={() => { setPlanRefresh((n) => n + 1); fetchAvailability(manualBusy).catch(() => {}); }}
                 />
               )}
+              <WeeklyFinder authHeaders={authHeaders} group={activeGroup} settings={effectiveSettings} onBook={setBookSlot} />
             </PlanPanel>
           </section>
 

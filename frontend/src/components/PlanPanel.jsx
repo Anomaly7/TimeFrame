@@ -4,7 +4,7 @@ import { formatSpan } from "../util";
 import AddToCalendar from "./AddToCalendar";
 
 // The Plan tab: the next booked meeting (pinned), the best times to book, and everything coming up.
-export default function PlanPanel({ authHeaders, group, freeTimes, refreshKey, onBook, onChanged, notify, children }) {
+export default function PlanPanel({ authHeaders, group, freeTimes, almostFree = [], refreshKey, onBook, onChanged, notify, children }) {
   const [bookings, setBookings] = useState([]);
   const [confirmCancel, setConfirmCancel] = useState(null);
 
@@ -81,6 +81,21 @@ export default function PlanPanel({ authHeaders, group, freeTimes, refreshKey, o
           ))}
         </ul>
       </div>
+
+      {almostFree.length > 0 && (
+        <div className="card">
+          <div className="card-title"><h2>Almost works</h2></div>
+          <p className="muted-line">Nothing fits everyone here. These work for all but one person:</p>
+          <ul className="plan-list">
+            {almostFree.map((f, i) => (
+              <li key={`${f.start}-${f.missing_id}-${i}`}>
+                <span>{formatSpan(f.start, f.end)}<br /><small>Everyone except {f.missing}</small></span>
+                <button className="btn btn-ghost" onClick={() => onBook(f)}>Book</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {children}
 

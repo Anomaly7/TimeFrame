@@ -7,6 +7,10 @@
     {
       "source": "/admin/:path*",
       "destination": "https://calender-app-mm4q.onrender.com/admin/:path*"
+    },
+    {
+      "source": "/:handle([A-Za-z0-9][A-Za-z0-9-]{1,28}[A-Za-z0-9])",
+      "destination": "/index.html"
     }
   ],
   "headers": [

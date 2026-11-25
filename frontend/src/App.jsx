@@ -19,6 +19,7 @@ import PlanPanel from "./components/PlanPanel";
 import PollsCard from "./components/PollsCard";
 import NotificationsBell from "./components/NotificationsBell";
 import WeeklyFinder from "./components/WeeklyFinder";
+import BookingPageSettings from "./components/BookingPageSettings";
 import GuestJoin from "./components/GuestJoin";
 import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
@@ -224,6 +225,7 @@ export default function App() {
   const [bookings, setBookings] = useState([]);
   const [almostFree, setAlmostFree] = useState([]); // free for everyone but one person
   const [planRefresh, setPlanRefresh] = useState(0);
+  const [bookingPageOpen, setBookingPageOpen] = useState(false);
   // Sidebar tab, remembered between visits.
   const [sideTab, setSideTab] = useState(() => localStorage.getItem("sideTab") || "groups");
   function pickSideTab(tab) {
@@ -481,7 +483,7 @@ export default function App() {
     if (!email) return;
     const q = new URLSearchParams(window.location.search);
     const result = q.get("billing"), sessionId = q.get("session_id");
-    if (q.get("upgrade")) setUpgrade("Unlimited groups, your own settings and the Chrome extension.");
+    if (q.get("upgrade")) setUpgrade("Unlimited groups, your own settings, a booking page and the Chrome extension.");
     if (result || q.get("upgrade")) {
       ["billing", "session_id", "upgrade"].forEach((k) => q.delete(k));
       const rest = q.toString();
@@ -838,6 +840,11 @@ export default function App() {
                     ✦ Upgrade to Pro
                   </button>
                 ))}
+                {!isGuest && (
+                  <button role="menuitem" onClick={() => { setMenuOpen(false); isPro ? setBookingPageOpen(true) : setUpgrade("Your own booking page is part of TimeFrame Pro."); }}>
+                    Booking page{isPro ? "" : " ✦"}
+                  </button>
+                )}
                 {billing?.can_manage && (
                   <button role="menuitem" onClick={() => { setMenuOpen(false); openBillingPortal(); }}>Manage billing</button>
                 )}
@@ -864,6 +871,16 @@ export default function App() {
           reason={upgrade || undefined}
           onClose={() => setUpgrade(null)}
           onUpgraded={refreshBilling}
+        />
+      )}
+
+      {bookingPageOpen && (
+        <BookingPageSettings
+          authHeaders={authHeaders}
+          myName={myName || email.split("@")[0]}
+          notify={showToast}
+          onClose={() => setBookingPageOpen(false)}
+          onNeedPro={() => { setBookingPageOpen(false); setUpgrade("Your own booking page is part of TimeFrame Pro."); }}
         />
       )}
 

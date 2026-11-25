@@ -1587,3 +1587,36 @@
 .weekly-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
 .weekly-controls select { padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 0.84rem;
   background: var(--surface); color: var(--text); }
+
+/* ---- Booking page (Pro, 2026-11-25) ---- */
+.bp-shell { min-height: 100vh; display: grid; place-items: start center; padding: 6vh 1rem 2rem; background: var(--bg); }
+.bp-card { width: 100%; max-width: 520px; background: var(--surface); border-radius: 22px; padding: 1.6rem 1.5rem; box-shadow: var(--shadow); }
+.bp-logo { margin-bottom: 1.2rem; text-decoration: none; color: inherit; }
+.bp-host { margin: 0; font-weight: 600; color: var(--text-muted); }
+.bp-title { margin: 0.1rem 0 0.3rem; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.bp-days { display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.3rem 0 0.6rem; }
+.bp-days button { flex: none; display: flex; flex-direction: column; align-items: center; min-width: 3.4rem; padding: 0.45rem 0.4rem;
+  border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.bp-days button span, .bp-days button small { font-size: 0.7rem; color: var(--text-muted); }
+.bp-days button b { font-size: 1.1rem; }
+.bp-days button.on { border-color: var(--accent); background: var(--accent-soft); }
+.bp-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.45rem; margin-bottom: 0.6rem; }
+.bp-times .btn { justify-content: center; border: 1.5px solid var(--border); }
+.bp-times .btn:hover { border-color: var(--accent); color: var(--accent); }
+.bp-picked { font-weight: 600; margin: 0.3rem 0 0.8rem; }
+.bp-confirm { width: 100%; padding: 0.75rem; }
+.bp-foot { margin: 1.3rem 0 0; font-size: 0.76rem; color: var(--text-muted); text-align: center; }
+.bp-foot a { color: inherit; }
+.bp-link { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.55rem 0.75rem; border-radius: 10px;
+  background: var(--accent-soft); margin-bottom: 0.9rem; font-size: 0.88rem; overflow-wrap: anywhere; }
+.bp-link a { color: var(--accent); font-weight: 600; }
+.bp-handle { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.bp-handle em { font-style: normal; color: var(--text-muted); padding-left: 0.7rem; font-size: 0.85rem; white-space: nowrap; }
+.bp-handle input { border: none !important; box-shadow: none !important; flex: 1; padding-left: 0.1rem !important; }
+.bp-weekdays { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.bp-weekdays button { padding: 0.35rem 0.6rem; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-muted); font: inherit; font-size: 0.8rem; cursor: pointer; }
+.bp-weekdays button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.bp-settings { max-width: 500px; }
+.bp-enabled { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; font-weight: 600; }
+.field textarea { resize: vertical; }

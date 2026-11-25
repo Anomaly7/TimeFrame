@@ -104,8 +104,11 @@ def public(b: dict, viewer: str) -> dict:
     """What a member sees: the booker's contact details only for the host of a booking-page booking."""
     out = {k: b[k] for k in ("id", "group_id", "title", "start", "end", "created_at", "note")}
     out["created_by_name"] = display_name(b["created_by"]) if b["created_by"] else (b["guest_name"] or "Guest")
-    out["can_cancel"] = _k(b["created_by"]) == _k(viewer) or _k(b["host"]) == _k(viewer) or (
-        b["group_id"] and _is_admin(b["group_id"], viewer))
+    me = _k(viewer)
+    out["can_cancel"] = bool(me) and (
+        (bool(b["created_by"]) and _k(b["created_by"]) == me)
+        or (bool(b["host"]) and _k(b["host"]) == me)
+        or (bool(b["group_id"]) and _is_admin(b["group_id"], viewer)))
     if b["host"] and _k(b["host"]) == _k(viewer):
         out["guest_name"], out["guest_email"] = b["guest_name"], b["guest_email"]
         out["booking_page"] = True

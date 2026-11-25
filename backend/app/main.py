@@ -16,6 +16,7 @@ from app.bookings import router as bookings_router
 from app.guests import router as guests_router
 from app.polls import router as polls_router
 from app.notifications import router as notifications_router, start_reminder_loop
+from app.booking_page import router as booking_page_router
 import app.maintenance as maintenance
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
@@ -93,6 +94,7 @@ app.include_router(bookings_router)  # booked meetings
 app.include_router(guests_router)  # guest links
 app.include_router(polls_router)  # polls / propose times
 app.include_router(notifications_router)  # bell + push
+app.include_router(booking_page_router)  # Pro booking page (/book/<handle>)
 app.include_router(admin_router)  # owner-only /admin (off until ADMIN_PASSWORD + ADMIN_TOTP_SECRET are set)
 
 # Background jobs (Google auto-sync; off unless its key is set, and in tests via DISABLE_BACKGROUND_JOBS).

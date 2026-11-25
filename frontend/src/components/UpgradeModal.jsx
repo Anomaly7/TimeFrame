@@ -8,6 +8,7 @@ import { showLoader } from "../loading";
 const FEATURES = [
   "Create as many groups as you want (Free: 1)",
   "Settings: your hours, meeting length, weekends and best times",
+  "Your own booking page (timeframecalender.com/you)",
   "The TimeFrame Chrome extension",
   "Everything in Free: Google, Apple, Notion and .ics calendars",
 ];

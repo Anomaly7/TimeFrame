@@ -452,6 +452,7 @@ def delete_account(uid: str) -> str:
     conn.execute("UPDATE bookings SET cancelled = 1 WHERE LOWER(TRIM(host)) = ?", (me,))
     conn.execute("DELETE FROM notifications WHERE user_id = ?", (me,))
     conn.execute("DELETE FROM push_subs WHERE user_id = ?", (me,))
+    conn.execute("DELETE FROM booking_pages WHERE user_id = ?", (me,))
     conn.execute("DELETE FROM group_members WHERE LOWER(TRIM(user_id)) = ?", (me,))
     conn.execute("DELETE FROM group_bans WHERE LOWER(TRIM(user_id)) = ?", (me,))
     for (gid,) in conn.execute("SELECT id FROM groups WHERE LOWER(TRIM(owner)) = ?", (me,)).fetchall():

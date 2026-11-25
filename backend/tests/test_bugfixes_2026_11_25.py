@@ -52,3 +52,27 @@ def test_todays_free_slots_start_on_a_five_minute_mark():
     slots = find_free_time([], today, time(0, 0), time(23, 59), min_minutes=5, tz=tz)
     for start, _end in slots:
         assert start.second == 0 and start.microsecond == 0 and start.minute % 5 == 0
+
+
+def test_signing_out_keeps_your_calendar(client):
+    from app.db import conn
+    sam = signup(client, "sam@example.com")
+    conn.execute("INSERT INTO busy_times (user_id, start, end_time, source, raw_timezone, title) VALUES "
+                 "('sam@example.com', '2030-01-01T10:00:00+00:00', '2030-01-01T11:00:00+00:00', 'google', 'UTC', NULL)")
+    conn.commit()
+    assert client.post("/auth/logout", headers=sam).json() == {"logged_out": True}
+    assert client.get("/auth/status", headers=sam).json() == {"connected": True}
+
+
+def test_rate_limits_use_cloudflares_address_not_a_typed_one():
+    from starlette.requests import Request
+    from app.auth_utils import client_ip
+
+    def req(headers):
+        return Request({"type": "http", "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+                        "client": ("10.0.0.1", 1234)})
+
+    # Behind Cloudflare: a made-up X-Forwarded-For is ignored.
+    assert client_ip(req({"CF-Connecting-IP": "203.0.113.7", "X-Forwarded-For": "1.2.3.4, 203.0.113.7"})) == "203.0.113.7"
+    assert client_ip(req({"X-Forwarded-For": "1.2.3.4"})) == "1.2.3.4"  # local/tests only
+    assert client_ip(req({})) == "10.0.0.1"

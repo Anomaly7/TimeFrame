@@ -930,7 +930,11 @@ export default function App() {
           </section>
 
           <section className="side-section" hidden={sideTab !== "calendars"}>
-            <GoogleConnect connected={googleConnected} />
+            <GoogleConnect
+              connected={googleConnected}
+              authHeaders={authHeaders}
+              onChanged={() => { setGoogleConnected(false); onLinksChanged(); }}
+            />
             <AppleConnect connected={appleConnected} onChanged={onLinksChanged} />
             {(notionAvailable || notionConnected) && (
               <NotionConnect signedIn connected={notionConnected} imported={notionImported} onChanged={onLinksChanged} />

@@ -212,8 +212,13 @@ def clean_text(value, max_len: int) -> str:
 
 
 def client_ip(request: Request) -> str:
-    # Render (like most hosts) sits behind a proxy; the original client is the
-    # first address in X-Forwarded-For.
+    # Render sits behind Cloudflare, which puts the visitor's real address in CF-Connecting-IP and overwrites any
+    # value the visitor sends. X-Forwarded-For is not safe for this: its first entry is whatever the visitor typed,
+    # so anyone could dodge the sign-in/coupon/group-code rate limits by sending a new fake address each try
+    # (fixed 2026-11-25). X-Forwarded-For is only used where there's no Cloudflare (local runs, tests).
+    cf = (request.headers.get("cf-connecting-ip") or "").strip()
+    if cf:
+        return cf
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()

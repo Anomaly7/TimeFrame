@@ -307,10 +307,7 @@ def set_name(body: dict = Body(...), user_id: str = Depends(get_current_user)):
 
 @router.post("/auth/logout")
 def logout(user_id: str = Depends(get_current_user)):
-    conn.execute(
-        "DELETE FROM busy_times WHERE user_id = ? AND source = 'google'",
-        (user_id,)
-    )
-    conn.commit()
-
+    """Signing out of one device keeps your calendar: it used to delete your Google busy times, so signing out
+    on a phone made you look free to every group until you signed in with Google again (fixed 2026-11-25).
+    Removing Google data is "Disconnect" (/auth/disconnect); deleting everything is account deletion."""
     return {"logged_out": True}

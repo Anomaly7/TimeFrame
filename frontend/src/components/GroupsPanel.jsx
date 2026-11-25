@@ -13,6 +13,31 @@ function linkFor(groupId) {
   return `${window.location.origin}/?group=${groupId}`;
 }
 
+// Copies text on every browser. Must be called straight from a click/submit: Safari, Firefox and phones only allow
+// clipboard writes during the click itself, not after waiting for the server (Sam, 2026-11-25). Resolves true/false.
+function copyText(text) {
+  const fallback = () => {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length); // iOS Safari
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(() => true, () => fallback());
+  }
+  return Promise.resolve(fallback());
+}
+
 // Every group link you're in: make named ones, switch which one the
 // calendar shows, copy a link, rename or leave. Each link stays live until
 // everyone leaves it.
@@ -26,6 +51,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
   const [confirmLeave, setConfirmLeave] = useState(null);
   const [confirmKick, setConfirmKick] = useState(null); // `${groupId}|${memberId}`
   const [copied, setCopied] = useState(null);
+  const [made, setMade] = useState(null); // { id, link, copied } after "Create group link"
   const [error, setError] = useState("");
 
   async function load() {
@@ -71,6 +97,10 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     // Free accounts can create 1 group, Pro unlimited (the server checks too); joining one stays free.
     if (!canCreate && onNeedPro) return onNeedPro();
     const id = generateShortGroupId();
+    // Copy now, while it still counts as your click (see copyText). The link is known before the server call.
+    const copying = copyText(linkFor(id));
+    setMade(null);
+    setError("");
     try {
       // Join first: the server only shows a group's calendars to its members.
       await post(`/groups/join?group_id=${id}&name=${encodeURIComponent(newName)}`);
@@ -83,7 +113,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
       setNewName("");
       await load();
       onSwitch(id);
-      copy(id);
+      setMade({ id, link: linkFor(id), copied: await copying });
     } catch (err) {
       if (/Pro/.test(err.message) && onNeedPro) onNeedPro();
       else setError(err.message);
@@ -133,13 +163,16 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
   }
 
   function copy(id) {
-    navigator.clipboard.writeText(linkFor(id)).then(
-      () => {
-        setCopied(id);
-        setTimeout(() => setCopied((c) => (c === id ? null : c)), 2000);
-      },
-      () => setError(`Copy this link: ${linkFor(id)}`)
-    );
+    copyText(linkFor(id)).then((ok) => {
+      if (!ok) return setMade({ id, link: linkFor(id), copied: false });
+      setCopied(id);
+      setTimeout(() => setCopied((c) => (c === id ? null : c)), 2000);
+    });
+  }
+
+  const canShare = typeof navigator !== "undefined" && !!navigator.share;
+  function share(link) {
+    navigator.share({ title: "Join my TimeFrame group", text: "Find a time that works for everyone:", url: link }).catch(() => {});
   }
 
   return (
@@ -155,6 +188,20 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
         <button className="btn btn-primary" type="submit">Create group link{!canCreate && <span className="pro-tag">PRO</span>}</button>
       </form>
 
+      {made && (
+        <div className={`link-made ${made.copied ? "ok" : ""}`} role="status">
+          <div className="link-made-head">
+            <strong>{made.copied ? "✓ Group created. Link copied" : "Group created. Copy your link"}</strong>
+            <button type="button" className="link-btn muted" onClick={() => setMade(null)} aria-label="Dismiss">✕</button>
+          </div>
+          <p>{made.copied ? "Paste it anywhere to invite people." : "Your browser blocked automatic copying. Use the button below."}</p>
+          <div className="link-made-row">
+            <input readOnly value={made.link} onFocus={(e) => e.target.select()} aria-label="Group link" />
+            <button type="button" className="btn-ghost" onClick={() => copyText(made.link).then((ok) => setMade({ ...made, copied: ok || made.copied }))}>Copy</button>
+            {canShare && <button type="button" className="btn-ghost" onClick={() => share(made.link)}>Share</button>}
+          </div>
+        </div>
+      )}
       {error && <p className="error-text">{error}</p>}
 
       <ul className="groups-list">

@@ -1332,3 +1332,12 @@
   .mt-shim, .mt-gear svg, .mt-badge i { animation: none; }
   .mt-bar span { animation-duration: 3s; }
 }
+
+/* "Create group link": copied confirmation with the link, Copy and (phones) Share (2026-11-25) */
+.link-made { margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-soft); border: 1px solid var(--accent-translucent); }
+.link-made.ok { background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+.link-made-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.link-made.ok strong { color: var(--success); }
+.link-made p { margin: 4px 0 10px; font-size: 0.88rem; color: var(--text-muted); }
+.link-made-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.link-made-row input { flex: 1 1 200px; min-width: 0; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 0.88rem; }

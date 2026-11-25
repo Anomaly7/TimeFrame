@@ -61,7 +61,7 @@ def test_signing_out_keeps_your_calendar(client):
                  "('sam@example.com', '2030-01-01T10:00:00+00:00', '2030-01-01T11:00:00+00:00', 'google', 'UTC', NULL)")
     conn.commit()
     assert client.post("/auth/logout", headers=sam).json() == {"logged_out": True}
-    assert client.get("/auth/status", headers=sam).json() == {"connected": True}
+    assert client.get("/auth/status", headers=sam).json()["connected"] is True
 
 
 def test_rate_limits_use_cloudflares_address_not_a_typed_one():

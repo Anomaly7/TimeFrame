@@ -357,13 +357,26 @@ export default function App() {
   // Whether Google Calendar is actually linked - not just "signed in"
   // (an email/password account isn't connected to Google).
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState(null); // last sync time, auto-sync on/off
+
+  function refreshGoogleStatus() {
+    return fetch(`${API_URL}/auth/status`, { headers: authHeaders() })
+      .then((res) => (res.ok ? res.json() : { connected: false }))
+      .then((data) => { setGoogleConnected(!!data.connected); setGoogleStatus(data); return data; })
+      .catch(() => { setGoogleConnected(false); return null; });
+  }
 
   useEffect(() => {
     if (!email) return;
-    fetch(`${API_URL}/auth/status`, { headers: authHeaders() })
-      .then((res) => (res.ok ? res.json() : { connected: false }))
-      .then((data) => setGoogleConnected(!!data.connected))
-      .catch(() => setGoogleConnected(false));
+    refreshGoogleStatus().then((data) => {
+      // Stale data with auto-sync on: the server is re-reading Google now; show the result when it lands.
+      if (data?.auto_sync && (!data.synced_at || Date.now() / 1000 - data.synced_at > 3 * 3600)) {
+        setTimeout(() => {
+          refreshGoogleStatus();
+          fetchAvailability(manualBusy).catch(() => {});
+        }, 15000);
+      }
+    });
     refreshLinks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
@@ -932,8 +945,11 @@ export default function App() {
           <section className="side-section" hidden={sideTab !== "calendars"}>
             <GoogleConnect
               connected={googleConnected}
+              status={googleStatus}
               authHeaders={authHeaders}
-              onChanged={() => { setGoogleConnected(false); onLinksChanged(); }}
+              notify={showToast}
+              onChanged={() => { setGoogleConnected(false); setGoogleStatus(null); onLinksChanged(); }}
+              onSynced={() => { refreshGoogleStatus(); fetchAvailability(manualBusy).catch(() => {}); }}
             />
             <AppleConnect connected={appleConnected} onChanged={onLinksChanged} />
             {(notionAvailable || notionConnected) && (

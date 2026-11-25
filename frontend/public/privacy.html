@@ -61,7 +61,7 @@
 <body>
 <div class="wrap">
   <h1>Privacy Policy — TimeFrame</h1>
-<p class="updated">Last updated: November 19, 2026</p>
+<p class="updated">Last updated: November 25, 2026</p>
 <div class="card">
 <p>
 TimeFrame (<a href="https://www.timeframecalender.com">www.timeframecalender.com</a>, "the app") helps you and
@@ -91,8 +91,16 @@ From each event it requests only:
 </ul>
 <p>
 It does not request event titles, descriptions, locations, attachments or other attendees. It also reads your
-Google account email address, which becomes your TimeFrame account. Google access is used once, at the moment you
-connect or reconnect, to import busy times; TimeFrame does not keep a Google access or refresh token.
+Google account email address, which becomes your TimeFrame account. Google access is used when you connect or
+reconnect, or press "Sync now", to import busy times.
+</p>
+<p>
+<strong>Auto-sync.</strong> So your free times stay accurate, TimeFrame can re-read your busy times every few hours.
+When this is on, TimeFrame keeps a Google refresh token for your account, encrypted, and uses it only to repeat the
+same read-only busy-time import described above. It never uses it for anything else. Choosing Disconnect on the
+Google Calendar card (or deleting your account) deletes the token and revokes it at Google. You can also remove
+TimeFrame's access at any time in your Google Account under Security &gt; Third-party access. When auto-sync is off,
+TimeFrame keeps no Google token.
 </p>
 
 <h2>Google API Services User Data Policy (Limited Use)</h2>

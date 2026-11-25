@@ -1491,3 +1491,6 @@
 }
 .g-sub .g-badge { margin-right: 6px; vertical-align: 1px; }
 .g-sub { display: block; }
+
+/* Google auto-sync (2026-11-25) */
+.sync-line { margin: -0.2rem 0 0.55rem; font-size: 0.8rem; color: var(--text-muted); }

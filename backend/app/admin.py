@@ -446,6 +446,9 @@ def delete_account(uid: str) -> str:
     note = _cancel_stripe(uid)
     conn.execute("DELETE FROM busy_times WHERE LOWER(TRIM(user_id)) = ?", (me,))
     conn.execute("DELETE FROM calendar_links WHERE LOWER(TRIM(user_id)) = ?", (me,))
+    from app.google_sync import forget_token
+    forget_token(me)
+    conn.execute("DELETE FROM calendar_sync WHERE user_id = ?", (me,))
     conn.execute("DELETE FROM group_members WHERE LOWER(TRIM(user_id)) = ?", (me,))
     conn.execute("DELETE FROM group_bans WHERE LOWER(TRIM(user_id)) = ?", (me,))
     for (gid,) in conn.execute("SELECT id FROM groups WHERE LOWER(TRIM(owner)) = ?", (me,)).fetchall():

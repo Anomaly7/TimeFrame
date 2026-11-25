@@ -11,6 +11,7 @@ from app.apple_calendar import router as apple_router
 from app.notion_auth import router as notion_router
 from app.billing import router as billing_router
 from app.admin import router as admin_router
+from app.google_sync import router as sync_router, start_background_loop
 import app.maintenance as maintenance
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
@@ -83,7 +84,12 @@ app.include_router(apple_router)
 app.include_router(notion_router)
 app.include_router(billing_router)
 app.include_router(maintenance.router)  # public GET /status (maintenance mode on/off)
+app.include_router(sync_router)  # Google auto-sync / "Sync now"
 app.include_router(admin_router)  # owner-only /admin (off until ADMIN_PASSWORD + ADMIN_TOTP_SECRET are set)
+
+# Background jobs (Google auto-sync; off unless its key is set, and in tests via DISABLE_BACKGROUND_JOBS).
+start_background_loop()
+
 
 @app.get("/")
 def root():

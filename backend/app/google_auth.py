@@ -121,7 +121,7 @@ def event_key(event) -> tuple:
 
 
 @router.get("/auth/login")
-def login(app_redirect: str | None = None):
+def login(app_redirect: str | None = None, consent: bool = False):
     flow = get_flow()
     flow.redirect_uri = os.getenv("REDIRECT_URI")
 
@@ -130,10 +130,15 @@ def login(app_redirect: str | None = None):
     if app_redirect and not app_target:
         raise HTTPException(status_code=400, detail="That app address isn't allowed.")
     state, nonce = create_oauth_state(app_target)
+    extra = {}
+    # "Turn on auto-sync": Google only hands out a refresh token on the consent screen, so ask for it again.
+    if consent:
+        extra["prompt"] = "consent"
     auth_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
         state=state,
+        **extra,
     )
 
     response = RedirectResponse(auth_url)
@@ -185,7 +190,18 @@ class _Banned(Exception):
 
 
 def _import_google(credentials) -> str:
-    """Saves the user and their Google busy times; returns their user id."""
+    """Sign-in: saves the user and their Google busy times, keeps the refresh token for auto-sync when the server
+    has a key for it (google_sync.py); returns their user id."""
+    from app.google_sync import save_refresh_token
+    user_id = import_google_events(credentials)
+    save_refresh_token(user_id, getattr(credentials, "refresh_token", None))
+    conn.commit()
+    return user_id
+
+
+def import_google_events(credentials, expect_user: str | None = None) -> str:
+    """Saves the user and their Google busy times; returns their user id. expect_user (auto-sync): the account the
+    stored token belongs to; anything else is refused rather than written to another account."""
     service = build("calendar", "v3", credentials=credentials)
 
     # A full year out (plus a week back) so Month view has real data
@@ -201,6 +217,8 @@ def _import_google(credentials) -> str:
     calendar_info = calendar.calendarList().get(calendarId="primary").execute()
     email = calendar_info["id"]   # usually the email
     user_id = email               # simple + stable
+    if expect_user is not None and email.strip().lower() != expect_user.strip().lower():
+        raise RuntimeError("Stored Google token belongs to a different account")
     if is_banned(email):
         raise _Banned()
 
@@ -246,6 +264,8 @@ def _import_google(credentials) -> str:
         (user_id, start.isoformat(), end.isoformat(), "google", raw_timezone, None)
         for start, end, raw_timezone, _title in busy
     )
+    from app.google_sync import mark_synced
+    mark_synced(user_id, "google")
 
     conn.commit()
     return user_id
@@ -256,11 +276,19 @@ def google_status(user_id: str = Depends(get_current_user)):
         "SELECT 1 FROM busy_times WHERE user_id = ? AND source = 'google' LIMIT 1",
         (user_id,)
     ).fetchone()
-
-    return {"connected": row is not None}
+    from app.google_sync import auto_sync_available, has_token, resync_in_background, stale, sync_info
+    auto = has_token(user_id)
+    # Opening the app re-syncs stale Google data in the background (the server sleeps between visits).
+    if row is not None and auto and stale(user_id):
+        resync_in_background(user_id)
+    return {"connected": row is not None, "auto_sync": auto, "auto_sync_available": auto_sync_available(),
+            **sync_info(user_id, "google")}
 
 @router.post("/auth/disconnect")
 def disconnect_google(user_id: str = Depends(get_current_user)):
+    from app.google_sync import forget_token
+    forget_token(user_id)
+    conn.execute("DELETE FROM calendar_sync WHERE user_id = ? AND source = 'google'", (user_id.strip().lower(),))
     conn.execute(
         "DELETE FROM busy_times WHERE user_id = ? AND source = 'google'",
         (user_id,)

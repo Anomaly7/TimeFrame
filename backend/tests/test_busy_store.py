@@ -153,6 +153,21 @@ def test_named_groups_list_rename_and_leave(client):
     assert [[m["name"] for m in g["members"]] for g in client.get("/groups", headers=priya).json()["groups"]] == [["You"]]
 
 
+def test_admin_can_delete_a_group_for_everyone(client):
+    sam = signup(client, "sam@example.com")
+    priya = signup(client, "priya@example.com")
+    client.post("/groups/join?group_id=Del23456&name=Trip", headers=sam)
+    client.post("/groups/join?group_id=Del23456", headers=priya)
+    # Only the admin can delete it.
+    assert client.post("/groups/delete?group_id=Del23456", headers=priya).status_code == 403
+    assert client.post("/groups/delete?group_id=Del23456", headers=sam).json() == {"deleted": True}
+    assert client.get("/groups", headers=sam).json()["groups"] == []
+    assert client.get("/groups", headers=priya).json()["groups"] == []
+    # The old link is dead: nobody can rejoin or recreate it.
+    assert client.post("/groups/join?group_id=Del23456", headers=priya).status_code == 410
+    assert client.post("/groups/join?group_id=Del23456", headers=sam).status_code == 410
+
+
 def test_group_admin_controls_settings_and_can_remove_people(client):
     sam = signup(client, "sam@example.com")
     priya = signup(client, "priya@example.com")

@@ -49,6 +49,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
   const [renaming, setRenaming] = useState(null); // group id being renamed
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmKick, setConfirmKick] = useState(null); // `${groupId}|${memberId}`
   const [copied, setCopied] = useState(null);
   const [made, setMade] = useState(null); // { id, link, copied } after "Create group link"
@@ -135,6 +136,19 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     try {
       await post(`/groups/leave?group_id=${id}`);
       setConfirmLeave(null);
+      if (id === activeGroupId) onSwitch(null);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // Admin only: removes everyone and deletes the group; the link stops working for good.
+  async function removeGroup(id) {
+    try {
+      await post(`/groups/delete?group_id=${id}`);
+      setConfirmDelete(null);
+      if (made?.id === id) setMade(null);
       if (id === activeGroupId) onSwitch(null);
       load();
     } catch (err) {
@@ -278,6 +292,16 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
               {g.claimable && (
                 <button className="btn-ghost" onClick={() => claim(g.id)} title="This older link has no admin yet">Make me admin</button>
               )}
+              {g.is_admin && (confirmDelete === g.id ? (
+                <>
+                  <button className="btn-danger-ghost" onClick={() => removeGroup(g.id)}>
+                    Delete for everyone{g.members.length > 1 ? ` (${g.members.length - 1} ${g.members.length === 2 ? "person" : "people"})` : ""}?
+                  </button>
+                  <button className="link-btn muted" onClick={() => setConfirmDelete(null)}>Cancel</button>
+                </>
+              ) : (
+                <button className="btn-danger-ghost" onClick={() => { setConfirmLeave(null); setConfirmDelete(g.id); }}>Delete</button>
+              ))}
               {confirmLeave === g.id ? (
                 <>
                   <button className="btn-danger-ghost" onClick={() => leave(g.id)}>Leave?</button>

@@ -205,6 +205,10 @@ CREATE TABLE IF NOT EXISTS group_bans (
 )
 """)
 
+# Groups their admin deleted. The link stays dead: nobody can recreate a group with that id
+# (they'd become admin of the old link everyone still has).
+conn.execute("CREATE TABLE IF NOT EXISTS deleted_groups (id TEXT PRIMARY KEY, at_ms BIGINT)")
+
 conn.execute("""
 CREATE TABLE IF NOT EXISTS group_members (
     group_id TEXT,

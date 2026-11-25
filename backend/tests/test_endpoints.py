@@ -17,6 +17,7 @@ class FakeConn:
                                      source TEXT, raw_timezone TEXT, title TEXT);
             CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT, owner TEXT, settings TEXT);
             CREATE TABLE group_bans (group_id TEXT, user_id TEXT);
+            CREATE TABLE deleted_groups (id TEXT PRIMARY KEY, at_ms BIGINT);
             CREATE TABLE group_members (group_id TEXT, user_id TEXT);
             CREATE TABLE calendar_links (user_id TEXT, source TEXT);
             CREATE TABLE admin_audit (at BIGINT, ip TEXT, action TEXT, detail TEXT);

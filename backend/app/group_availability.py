@@ -359,6 +359,8 @@ def join_group(
     ).fetchone()
     if banned:
         raise HTTPException(status_code=403, detail="The group's admin removed you from this group.")
+    if conn.execute("SELECT 1 FROM deleted_groups WHERE id = ?", (group_id,)).fetchone():
+        raise HTTPException(status_code=410, detail="This group was deleted by its admin.")
     # Free accounts can create one group (counting the ones they own and are still in); Pro is
     # unlimited. Joining someone else's group is always free.
     exists = conn.execute("SELECT 1 FROM groups WHERE id = ?", (group_id,)).fetchone()
@@ -472,6 +474,22 @@ def kick_member(group_id: str = Query(...), member: str = Query(...), user_id: s
     conn.execute("INSERT INTO group_bans (group_id, user_id) VALUES (?, ?)", (group_id, member.strip().lower()))
     conn.commit()
     return {"removed": True}
+
+
+@router.post("/groups/delete")
+def delete_group(group_id: str = Query(...), user_id: str = Depends(get_current_user)):
+    """Admin only: removes everyone (including the admin) and deletes the group.
+    The link stops working for good."""
+    require_admin(group_id, user_id)
+    conn.execute("DELETE FROM group_members WHERE group_id = ?", (group_id,))
+    conn.execute("DELETE FROM group_bans WHERE group_id = ?", (group_id,))
+    conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    conn.execute(
+        "INSERT INTO deleted_groups (id, at_ms) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
+        (group_id, int(datetime.now().timestamp() * 1000))
+    )
+    conn.commit()
+    return {"deleted": True}
 
 
 @router.post("/groups/rename")

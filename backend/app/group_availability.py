@@ -260,7 +260,8 @@ def merge_users_availability(
             # Duplicate rows can pile up from things like a stale duplicate
             # group membership or a re-import - never show the same busy
             # interval twice.
-            key = (start_dt.isoformat(), end_dt.isoformat())
+            # Per person: two members with the same class at the same time must both show as busy.
+            key = (uid.strip().lower(), start_dt.isoformat(), end_dt.isoformat())
             if key in seen_intervals:
                 continue
             seen_intervals.add(key)
@@ -324,6 +325,9 @@ def merge_users_availability(
         "ranked_free_time": results,
         # The settings actually used, when a group's admin has set them.
         "group_settings": group_settings,
+        # False when a group was asked for but you're not in it (removed, or it was deleted),
+        # so the app can switch back to your own calendar.
+        "in_group": in_group if group_id else None,
     }
 
 @router.get("/availability/manual")
@@ -512,5 +516,10 @@ def leave_group(group_id: str = Query(...), user_id: str = Depends(get_current_u
         "DELETE FROM group_members WHERE group_id = ? AND LOWER(TRIM(user_id)) = ?",
         (group_id, user_id.strip().lower())
     )
+    # The admin leaving used to leave the group with an admin who wasn't in it: nobody could rename it,
+    # remove people or change its settings ever again. Now any remaining member can claim it.
+    info = group_row(group_id)
+    if info and same_user(info[1], user_id):
+        conn.execute("UPDATE groups SET owner = NULL WHERE id = ?", (group_id,))
     conn.commit()
     return {"left": True}

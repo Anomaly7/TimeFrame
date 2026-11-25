@@ -25,10 +25,17 @@ def _check_password_rules(password: str) -> None:
         raise HTTPException(status_code=400, detail="Password must be at most 72 characters.")
 
 
+def _fields(body: dict):
+    """Email and password from the request, or a 400 (not a server error) when they aren't text."""
+    email, password = body.get("email") or "", body.get("password") or ""
+    if not isinstance(email, str) or not isinstance(password, str):
+        raise HTTPException(status_code=400, detail="Enter a valid email address and password.")
+    return email.strip().lower(), password
+
+
 @router.post("/auth/signup")
 def signup(request: Request, body: dict = Body(...)):
-    email = (body.get("email") or "").strip().lower()
-    password = body.get("password") or ""
+    email, password = _fields(body)
     auth_limiter.check("ip:" + client_ip(request), "email:" + email)
 
     if len(email) > 254 or not EMAIL_RE.match(email):
@@ -58,8 +65,7 @@ def signup(request: Request, body: dict = Body(...)):
 
 @router.post("/auth/login")
 def login(request: Request, body: dict = Body(...)):
-    email = (body.get("email") or "").strip().lower()
-    password = body.get("password") or ""
+    email, password = _fields(body)
     auth_limiter.check("ip:" + client_ip(request), "email:" + email)
 
     row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (email,)).fetchone()

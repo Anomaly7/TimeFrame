@@ -164,6 +164,28 @@ def callback(request: Request):
         return RedirectResponse(f"{back_to}#auth_error=" + quote("Google sign-in failed. Please try again."))
     credentials = flow.credentials
 
+    try:
+        user_id = _import_google(credentials)
+    except _Banned:
+        return RedirectResponse(f"{back_to}#auth_error=" + quote(BANNED_DETAIL))
+    except Exception:
+        # Google hiccup after sign-in (calendar list or events failed): say so instead of a raw server error page.
+        return RedirectResponse(f"{back_to}#auth_error=" + quote("Couldn't read your Google Calendar. Please try again."))
+
+    token = create_session_token(user_id)
+    # In the #fragment, not the ?query: fragments are never sent to servers,
+    # so the token doesn't land in Vercel's logs or Referer headers.
+    response = RedirectResponse(f"{back_to}#user={quote(user_id)}&token={quote(token)}")
+    response.delete_cookie(STATE_COOKIE, path="/auth")
+    return response
+
+
+class _Banned(Exception):
+    pass
+
+
+def _import_google(credentials) -> str:
+    """Saves the user and their Google busy times; returns their user id."""
     service = build("calendar", "v3", credentials=credentials)
 
     # A full year out (plus a week back) so Month view has real data
@@ -180,7 +202,7 @@ def callback(request: Request):
     email = calendar_info["id"]   # usually the email
     user_id = email               # simple + stable
     if is_banned(email):
-        return RedirectResponse(f"{back_to}#auth_error=" + quote(BANNED_DETAIL))
+        raise _Banned()
 
 
     # Google has just proven this person owns the address. If someone else
@@ -226,14 +248,7 @@ def callback(request: Request):
     )
 
     conn.commit()
-
-
-    token = create_session_token(user_id)
-    # In the #fragment, not the ?query: fragments are never sent to servers,
-    # so the token doesn't land in Vercel's logs or Referer headers.
-    response = RedirectResponse(f"{back_to}#user={quote(user_id)}&token={quote(token)}")
-    response.delete_cookie(STATE_COOKIE, path="/auth")
-    return response
+    return user_id
 
 @router.get("/auth/status")
 def google_status(user_id: str = Depends(get_current_user)):

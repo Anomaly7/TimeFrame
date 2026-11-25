@@ -53,8 +53,13 @@ function addDaysISO(iso, n) {
 }
 
 function addMonthsISO(iso, n) {
+  // Clamp to the target month's last day: Jan 31 + 1 month is Feb 28, not Mar 3 (which skipped February).
   const d = parseISODate(iso);
+  const day = d.getDate();
+  d.setDate(1);
   d.setMonth(d.getMonth() + n);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
   return ymd(d);
 }
 
@@ -194,6 +199,10 @@ export default function App() {
   // In-app notice instead of alert(): alert() freezes the whole page until someone clicks OK (2026-11-25).
   const [toast, setToast] = useState(null); // { text, kind }
   const toastTimer = useRef(null);
+  // Set once the on-load group join has answered; until then "not in that group" may just mean "not yet".
+  const joinSettled = useRef(false);
+  // Only the newest calendar request may update the view (a slow older one used to overwrite it).
+  const fetchSeq = useRef(0);
   function showToast(text, kind = "info") {
     clearTimeout(toastTimer.current);
     setToast({ text, kind });
@@ -313,13 +322,17 @@ export default function App() {
     const token = tokenFromUrl || getToken();
 
 
-    if (!token || !joiningGroupId) return;
+    if (!token || !joiningGroupId) {
+      joinSettled.current = true;
+      return;
+    }
 
 
     fetch(
       `${API_URL}/groups/join?group_id=${joiningGroupId}`,
       { method: "POST", headers: authHeaders() }
     ).then(async (res) => {
+      joinSettled.current = true;
       if (!res.ok) {
         // e.g. the group's admin removed you: say so and stay on your own calendar.
         const detail = (await res.json().catch(() => ({}))).detail;
@@ -337,7 +350,7 @@ export default function App() {
       fetchAvailability(manualBusy).catch((err) => console.error(err));
       setActiveGroupId(joiningGroupId);
       setGroupsRefresh((n) => n + 1);
-    });
+    }).catch(() => { joinSettled.current = true; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIdFromLink, tokenFromUrl]);
 
@@ -554,6 +567,8 @@ export default function App() {
   async function fetchAvailability(extraBusy = [], { save = false } = {}) {
     const token = tokenFromUrl || getToken();
     if (!token) return;
+    const seq = ++fetchSeq.current;
+    const afterJoin = joinSettled.current;
     setFetching((n) => n + 1);
     try {
 
@@ -575,6 +590,14 @@ export default function App() {
     }
 
     const data = await res.json();
+    if (seq !== fetchSeq.current) return; // a newer request (other week, other group) is on its way
+    // Removed from the group, or it was deleted, since this browser last looked: back to your own calendar.
+    if (groupId && data.in_group === false && afterJoin && localStorage.getItem("groupId") === groupId) {
+      localStorage.removeItem("groupId");
+      setActiveGroupId(null);
+      setGroupsRefresh((n) => n + 1);
+      showToast("You're no longer in that group, so you're back on your own calendar.", "error");
+    }
     setBusyTimes(data.busy_times);
     setFreeTimes(data.ranked_free_time);
     } finally {
@@ -599,7 +622,8 @@ export default function App() {
     fetch(`${API_URL}/auth/logout`, {
       method: "POST",
       headers: authHeaders()
-    }).then(() => {
+    }).catch(() => {}).finally(() => {
+      // Sign out on this device even if the server is asleep or unreachable.
       localStorage.clear();
       clearToken();
       setEmail(null);
@@ -613,8 +637,7 @@ export default function App() {
   function switchGroup(groupId) {
     if (groupId) localStorage.setItem("groupId", groupId);
     else localStorage.removeItem("groupId");
-    setActiveGroupId(groupId);
-    fetchAvailability(manualBusy).catch((err) => console.error(err));
+    setActiveGroupId(groupId); // the effect watching activeGroupId reloads the calendar
   }
 
   // Still verifying a returning session. Usually instant, but a sleeping

@@ -60,7 +60,11 @@ export default function AvailabilityForm({ manualBusy, setManualBusy }) {
             type="date"
             aria-label="Start date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              // Keep the end on or after the start, so picking a later start day doesn't need a second fix.
+              if (e.target.value && endDate < e.target.value) setEndDate(e.target.value);
+            }}
           />
           <TimeWheelPicker value={startTime} onChange={setStartTime} />
         </div>

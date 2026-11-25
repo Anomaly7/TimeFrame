@@ -105,7 +105,10 @@ def find_free_time(
 
     # If today, don’t look at past time
     if target_date == now_tz.date():
-        start_dt = max(start_dt, now_tz)
+        # Rounded up to the next 5 minutes, so a slot never starts at something like 2:47:13.
+        rounded = now_tz.replace(second=0, microsecond=0)
+        rounded += timedelta(minutes=(-rounded.minute) % 5 or (5 if now_tz > rounded else 0))
+        start_dt = max(start_dt, rounded)
 
     # Busy blocks that overlap this day's window, clipped to it - an event
     # that started yesterday (overnight, or a multi-day all-day event)
@@ -127,7 +130,24 @@ def find_free_time(
 
     midnight = datetime.combine(target_date, time.min, tzinfo=tz)
 
+    def snap(start, gap_start, gap_end):
+        """Moves a proposed start onto a 5-minute mark (2:45, not 2:47:30), staying inside the gap."""
+        step = timedelta(minutes=5)
+        base = start.replace(second=0, microsecond=0)
+        down = base - timedelta(minutes=base.minute % 5)
+        for cand in (down, down + step):
+            if cand >= gap_start and cand + min_duration <= gap_end:
+                return cand
+        return start  # gap too tight to move: keep the exact time
+
     def best_window(gap_start, gap_end):
+        w = _best_window(gap_start, gap_end)
+        if not w:
+            return None
+        start = snap(w[0], gap_start, gap_end)
+        return (start, start + min_duration)
+
+    def _best_window(gap_start, gap_end):
         if gap_end - gap_start < min_duration:
             return None
         # With a ranking, put the meeting in the highest-ranked part of the

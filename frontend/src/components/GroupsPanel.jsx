@@ -124,6 +124,16 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
     }
   }
 
+  async function toggleGuests(g) {
+    try {
+      const allow = g.guests_allowed === false;
+      await post(`/groups/guests?group_id=${g.id}&allow=${allow}`);
+      setGroups((gs) => gs.map((x) => (x.id === g.id ? { ...x, guests_allowed: allow } : x)));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function saveRename(e, id) {
     e.preventDefault();
     try {
@@ -345,6 +355,11 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                           {g.claimable && (
                             <button role="menuitem" onClick={() => { setMenuFor(null); claim(g.id); }}>Make me admin</button>
                           )}
+                          {g.is_admin && (
+                            <button role="menuitem" onClick={() => { setMenuFor(null); toggleGuests(g); }}>
+                              {g.guests_allowed === false ? "Allow guests (no account)" : "Turn off guest joining"}
+                            </button>
+                          )}
                           <hr />
                           <button role="menuitem" className="danger" onClick={() => { setMenuFor(null); setConfirmDelete(null); setConfirmLeave(g.id); }}>Leave group</button>
                           {g.is_admin && (
@@ -364,7 +379,7 @@ export default function GroupsPanel({ authHeaders, activeGroupId, onSwitch, refr
                     return (
                       <li key={m.id}>
                         <span className="g-avatar sm" aria-hidden="true">{initials(m.name)}</span>
-                        <span className="g-member-name">{m.name}</span>
+                        <span className="g-member-name">{m.name}{m.guest && <span className="g-guest">Guest</span>}</span>
                         {confirmKick === key ? (
                           <span className="g-actions">
                             <button className="btn-ghost btn-sm" onClick={() => setConfirmKick(null)}>Cancel</button>

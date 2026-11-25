@@ -38,7 +38,7 @@ def signup(request: Request, body: dict = Body(...)):
     email, password = _fields(body)
     auth_limiter.check("ip:" + client_ip(request), "email:" + email)
 
-    if len(email) > 254 or not EMAIL_RE.match(email):
+    if len(email) > 254 or not EMAIL_RE.match(email) or email.endswith("@guest.timeframecalender.com"):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")
     _check_password_rules(password)
     check_not_banned(email)

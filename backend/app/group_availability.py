@@ -398,6 +398,9 @@ def join_group(
     # Free accounts can create one group (counting the ones they own and are still in); Pro is
     # unlimited. Joining someone else's group is always free.
     exists = conn.execute("SELECT 1 FROM groups WHERE id = ?", (group_id,)).fetchone()
+    from app.guests import guests_allowed, is_guest
+    if is_guest(user_id) and (not exists or not guests_allowed(group_id)):
+        raise HTTPException(status_code=403, detail="Guests can only join groups that allow guests. Make a free account to do more.")
     if not exists:
         from app.billing import FREE_GROUP_LIMIT, is_pro
         if owned_group_count(user_id) >= FREE_GROUP_LIMIT and not is_pro(user_id):
@@ -438,6 +441,7 @@ def my_groups(user_id: str = Depends(get_current_user)):
     ).fetchall()
     group_ids = [r[0] for r in rows]
 
+    from app.guests import guests_allowed, is_guest
     out = []
     for gid in group_ids:
         name, owner, settings = group_row(gid) or (None, None, None)
@@ -454,6 +458,7 @@ def my_groups(user_id: str = Depends(get_current_user)):
                 "name": "You" if key == me else (row[0] if row and row[0] else uid.split("@")[0]),
                 "you": key == me,
                 "admin": same_user(owner, uid),
+                "guest": is_guest(uid),
             })
         out.append({
             "id": gid,
@@ -463,6 +468,7 @@ def my_groups(user_id: str = Depends(get_current_user)):
             # Links made before admins existed: any member can claim them.
             "claimable": owner is None,
             "settings": settings,
+            "guests_allowed": guests_allowed(gid),
         })
     return {"groups": out}
 

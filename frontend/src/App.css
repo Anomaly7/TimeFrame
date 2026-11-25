@@ -1521,3 +1521,27 @@
 .plan-list li small { color: var(--text-muted); }
 .plan-list .btn { flex: none; }
 .plan-next { border: 1.5px solid var(--accent-translucent); }
+
+/* ---- Guest links + paint grid (2026-11-25) ---- */
+.guest-join { margin: 0 0 1rem; padding: 1rem; border-radius: 14px; background: var(--accent-soft); }
+.guest-join-head { margin: 0 0 0.2rem; font-size: 0.95rem; }
+.guest-join-row { display: flex; gap: 0.5rem; }
+.guest-join-row input { flex: 1; min-width: 0; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; font: inherit;
+  background: var(--surface); color: var(--text); }
+.guest-join .auth-divider { margin: 1rem 0 0; }
+.guest-banner { margin-bottom: 0.7rem; padding: 0.7rem 0.85rem; border-radius: 12px; background: var(--accent-soft); font-size: 0.84rem; line-height: 1.45; }
+.guest-banner a { color: var(--accent); font-weight: 600; }
+.g-guest { margin-left: 0.4rem; font-size: 0.66rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 999px;
+  background: var(--surface-muted); color: var(--text-muted); vertical-align: 1px; }
+.seg.seg-sm { margin-bottom: 0.6rem; }
+.seg.seg-sm button { padding: 0.3rem 0.9rem; font-size: 0.8rem; }
+.paint-grid { display: grid; grid-template-columns: 2.6rem repeat(var(--paint-cols), minmax(0, 1fr)); user-select: none;
+  touch-action: none; border-radius: 10px; overflow: hidden; margin-bottom: 0.7rem; }
+.paint-corner { background: transparent; }
+.paint-day { display: flex; flex-direction: column; align-items: center; padding: 0.2rem 0 0.35rem; font-size: 0.66rem; color: var(--text-muted); }
+.paint-day b { font-size: 0.82rem; color: var(--text); }
+.paint-hour { font-size: 0.6rem; color: var(--text-muted); text-align: right; padding-right: 0.3rem; line-height: 1; transform: translateY(-0.3rem); }
+.paint-cell { height: 14px; background: var(--surface-muted); border-top: 1px solid var(--border); border-left: 1px solid var(--border); cursor: crosshair; }
+.paint-cell.half { border-top-style: dashed; }
+.paint-cell.on { background: var(--tl-busy-bg); box-shadow: inset 3px 0 0 var(--tl-busy); }
+.paint-cell:hover { filter: brightness(0.96); }

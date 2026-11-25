@@ -16,6 +16,8 @@ import GroupsPanel from "./components/GroupsPanel";
 import UpgradeModal from "./components/UpgradeModal";
 import BookModal from "./components/BookModal";
 import PlanPanel from "./components/PlanPanel";
+import GuestJoin from "./components/GuestJoin";
+import PaintGrid from "./components/PaintGrid";
 import { hideLoader, showLoader } from "./loading";
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -133,6 +135,9 @@ export default function App() {
   // before the @); editable from the header.
   const [myName, setMyName] = useState("");
   const [hasCustomName, setHasCustomName] = useState(false);
+  // Joined a group link as a guest (no account): a simpler app with no calendar connections or Pro.
+  const [isGuest, setIsGuest] = useState(false);
+  const [busyMode, setBusyMode] = useState(() => localStorage.getItem("busyMode") || "paint");
   const [editingName, setEditingName] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // TimeFrame Pro (2026-11-20): billing status, the upgrade window and a one-line notice after checkout.
@@ -445,6 +450,8 @@ export default function App() {
       .then(data => {
         setMyName(data.name || "");
         setHasCustomName(!!data.custom_name);
+        setIsGuest(!!data.guest);
+        if (data.guest && !localStorage.getItem("sideTab")) setSideTab("busy");
         setEmail(data.email);
         renewToken(); // keeps an active user signed in (see session.js)
       })
@@ -722,6 +729,18 @@ export default function App() {
           </div>
           <h1 className="auth-title">Welcome to TimeFrame</h1>
           <p className="auth-sub">Sign in or create an account to continue.</p>
+          {(groupIdFromLink || localStorage.getItem("groupId")) && (
+            <GuestJoin
+              groupId={groupIdFromLink || localStorage.getItem("groupId")}
+              onJoined={(token, guestId) => {
+                saveToken(token);
+                localStorage.setItem("userId", guestId);
+                localStorage.setItem("groupId", groupIdFromLink || localStorage.getItem("groupId"));
+                localStorage.setItem("sideTab", "busy");
+                window.location.reload();
+              }}
+            />
+          )}
           <SignInOptions
             notionAvailable={notionAvailable}
             onAuthenticated={(token, authedEmail) => {
@@ -796,12 +815,12 @@ export default function App() {
               <div className="dash-menu" role="menu">
                 <div className="dash-menu-head">
                   <strong>{displayName}</strong>
-                  <span>{email}</span>
+                  <span>{isGuest ? "Guest (no account)" : email}</span>
                 </div>
                 <button role="menuitem" onClick={() => { setMenuOpen(false); setNameDraft(hasCustomName ? myName : ""); setEditingName(true); }}>
                   Edit display name
                 </button>
-                {billing && (isPro ? (
+                {billing && !isGuest && (isPro ? (
                   <div className="dash-menu-plan">TimeFrame Pro{proLabel ? ` · ${proLabel}` : ""}</div>
                 ) : (
                   <button role="menuitem" className="upgrade-item" onClick={() => { setMenuOpen(false); setUpgrade(null); setUpgrade(""); }}>
@@ -813,6 +832,7 @@ export default function App() {
                 )}
                 <button role="menuitem" onClick={() => { setMenuOpen(false); clearAll(); }}>Clear my schedule</button>
                 <hr />
+                {isGuest && <div className="dash-menu-plan">Guest · signing out ends this guest visit</div>}
                 <button role="menuitem" className="danger" onClick={() => { setMenuOpen(false); logout(); }}>Sign out</button>
               </div>
             </>
@@ -934,7 +954,7 @@ export default function App() {
             {[
               ["plan", "Plan", bookings.length || null],
               ["groups", "Groups", groups.length || null],
-              ["calendars", "Calendars", [googleConnected, appleConnected, notionConnected].filter(Boolean).length || null],
+              ...(isGuest ? [] : [["calendars", "Calendars", [googleConnected, appleConnected, notionConnected].filter(Boolean).length || null]]),
               ["busy", "Busy times", manualBusy.length || null],
             ].map(([key, label, count]) => (
               <button
@@ -996,10 +1016,35 @@ export default function App() {
           {/* Mounted only while open: the time wheels scroll to their value on mount, which fails while hidden. */}
           {sideTab === "busy" && (
             <section className="side-section">
-              <AvailabilityForm
-                manualBusy={manualBusy}
-                setManualBusy={setManualBusy}
-              />
+              {isGuest && (
+                <div className="guest-banner">
+                  You're a guest{activeGroup ? ` in ${activeGroup.name || "this group"}` : ""}. Paint when you're busy and the
+                  group sees it. <a href="/" onClick={(e) => { e.preventDefault(); logout(); }}>Make a free account</a> to connect your calendar.
+                </div>
+              )}
+              <div className="seg seg-sm" role="tablist" aria-label="How to add busy times">
+                {[["paint", "Paint"], ["list", "List"]].map(([k, label]) => (
+                  <button key={k} className={busyMode === k ? "active" : ""}
+                    onClick={() => { setBusyMode(k); localStorage.setItem("busyMode", k); }}>{label}</button>
+                ))}
+              </div>
+              {busyMode === "paint" ? (
+                <div className="card">
+                  <PaintGrid
+                    key={JSON.stringify(manualBusy)}
+                    manualBusy={manualBusy}
+                    setManualBusy={setManualBusy}
+                    dayStart={effectiveSettings.dayStart}
+                    dayEnd={effectiveSettings.dayEnd}
+                    onSaved={() => showToast("Busy times saved.")}
+                  />
+                </div>
+              ) : (
+                <AvailabilityForm
+                  manualBusy={manualBusy}
+                  setManualBusy={setManualBusy}
+                />
+              )}
             </section>
           )}
         </aside>

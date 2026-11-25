@@ -321,6 +321,7 @@ def me(user_id: str = Depends(get_current_user)):
         "email": row[0] if row else None,
         "name": (row[1] if row else None) or default_name(user_id),
         "custom_name": bool(row and row[1]),
+        "guest": user_id.strip().lower().endswith("@guest.timeframecalender.com"),
     }
 
 

@@ -13,6 +13,7 @@ from app.billing import router as billing_router
 from app.admin import router as admin_router
 from app.google_sync import router as sync_router, start_background_loop
 from app.bookings import router as bookings_router
+from app.guests import router as guests_router
 import app.maintenance as maintenance
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_utils import _secret
@@ -87,6 +88,7 @@ app.include_router(billing_router)
 app.include_router(maintenance.router)  # public GET /status (maintenance mode on/off)
 app.include_router(sync_router)  # Google auto-sync / "Sync now"
 app.include_router(bookings_router)  # booked meetings
+app.include_router(guests_router)  # guest links
 app.include_router(admin_router)  # owner-only /admin (off until ADMIN_PASSWORD + ADMIN_TOTP_SECRET are set)
 
 # Background jobs (Google auto-sync; off unless its key is set, and in tests via DISABLE_BACKGROUND_JOBS).

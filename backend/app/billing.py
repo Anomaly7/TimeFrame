@@ -201,6 +201,8 @@ def billing_status(user_id: str = Depends(get_current_user)):
 @router.post("/billing/redeem")
 def redeem_coupon(request: Request, body: dict = Body(...), user_id: str = Depends(get_current_user)):
     """The one coupon: Pro for free, no card. Using it again on the same account changes nothing."""
+    from app.guests import require_account
+    require_account(user_id, "TimeFrame Pro")
     if coupon_wrong_total.over("all"):
         raise HTTPException(status_code=429, detail="Coupon codes are paused for a while. Try again later.")
     coupon_limiter.check("coupon:" + user_id, "ip:" + client_ip(request))
@@ -225,6 +227,8 @@ def redeem_coupon(request: Request, body: dict = Body(...), user_id: str = Depen
 
 @router.post("/billing/checkout")
 def start_checkout(body: dict = Body(default={}), user_id: str = Depends(get_current_user)):
+    from app.guests import require_account
+    require_account(user_id, "TimeFrame Pro")
     interval = "year" if body.get("interval") == "year" else "month"
     if is_pro(user_id):
         raise HTTPException(status_code=400, detail="You already have TimeFrame Pro.")

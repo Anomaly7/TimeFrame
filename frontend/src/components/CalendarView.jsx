@@ -176,7 +176,9 @@ export default function CalendarView({
   currentUserId,
   excludeWeekends = false,
   dayStartHour = 8,
-  dayEndHour = 22
+  dayEndHour = 22,
+  bookings = [],
+  onPickSlot
 }) {
   const today = todayLocal();
   const anchor = viewDate || today;
@@ -309,12 +311,16 @@ export default function CalendarView({
                   {dayFree.map((f, i) => (
                     <div
                       key={`free-${i}`}
-                      className={`timeline-block best-free rank-${f.rank}`}
+                      className={`timeline-block best-free rank-${f.rank} ${onPickSlot ? "pickable" : ""}`}
+                      role={onPickSlot ? "button" : undefined}
+                      tabIndex={onPickSlot ? 0 : undefined}
+                      onClick={onPickSlot ? () => onPickSlot(topFree[f.rank - 1]) : undefined}
+                      onKeyDown={onPickSlot ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPickSlot(topFree[f.rank - 1]); } } : undefined}
                       style={{
                         top: `${(f.startMin / totalMinutes) * totalHeight}px`,
                         height: `${Math.max(4, ((f.endMin - f.startMin) / totalMinutes) * totalHeight)}px`
                       }}
-                      title={`${rankLabel[f.rank - 1]} · ${f.duration_minutes} min`}
+                      title={`${rankLabel[f.rank - 1]} · ${f.duration_minutes} min${onPickSlot ? " · click to book" : ""}`}
                     >
                       <div className="block-content">
                         <span className="block-time">
@@ -359,6 +365,27 @@ export default function CalendarView({
                     );
                   })}
 
+                  {bookings
+                    .map((b) => ({ ...b, ...toSpan(b.start, b.end, date) }))
+                    .filter((b) => b.endMin > 0 && b.startMin < totalMinutes)
+                    .map(clip)
+                    .map((b) => (
+                      <div
+                        key={`booked-${b.id}`}
+                        className="timeline-block booked"
+                        style={{
+                          top: `${(b.startMin / totalMinutes) * totalHeight}px`,
+                          height: `${Math.max(4, ((b.endMin - b.startMin) / totalMinutes) * totalHeight)}px`
+                        }}
+                        title={`Booked: ${b.title} · ${formatBlockTime(b.start, timezone)} – ${formatBlockTime(b.end, timezone)}`}
+                      >
+                        <div className="block-content">
+                          <span className="block-time">✓ {b.title}</span>
+                          <span className="block-sub">{formatBlockTime(b.start, timezone)} – {formatBlockTime(b.end, timezone)}</span>
+                        </div>
+                      </div>
+                    ))}
+
                   {isToday && showNowLine && (
                     <div
                       className="timeline-now-line"
@@ -381,6 +408,7 @@ export default function CalendarView({
         ))}
         <span><span className="swatch best-free rank-1" /> 👑 Best free slot</span>
         <span><span className="swatch best-free rank-2" /> 2nd/3rd best</span>
+        {bookings.length > 0 && <span><span className="swatch booked" /> Booked</span>}
       </div>
     </div>
   );

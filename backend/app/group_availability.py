@@ -286,6 +286,35 @@ def merge_users_availability(
                 "source_timezone": raw_timezone
             })
 
+    # ---- Booked meetings (bookings.py) ----
+    # Ones the viewer is part of show as "Booked" with their name; anyone else's (another group of a member's, a
+    # member's booking page) is just a busy block for that person. All of them count as busy.
+    from app.bookings import bookings_for_user, public as public_booking
+    visible_bookings, seen_bookings = [], set()
+    for uid in member_ids:
+        mine = uid == user_id
+        for b in bookings_for_user(uid):
+            b_start = datetime.fromisoformat(b["start"]).astimezone(viewer_tz)
+            b_end = datetime.fromisoformat(b["end"]).astimezone(viewer_tz)
+            if not (b_start < window_end and b_end > window_start):
+                continue
+            all_busy.append((b_start, b_end))
+            viewer_sees = mine or (b["group_id"] and b["group_id"] == group_id and in_group)
+            if viewer_sees:
+                if b["id"] not in seen_bookings:
+                    seen_bookings.add(b["id"])
+                    visible_bookings.append({**public_booking(b, user_id), "start": b_start.isoformat(),
+                                             "end": b_end.isoformat(), "date": max(b_start, window_start).date().isoformat()})
+                continue
+            key = (uid.strip().lower(), b_start.isoformat(), b_end.isoformat())
+            if key in seen_intervals:
+                continue
+            seen_intervals.add(key)
+            busy_output.append({
+                "date": max(b_start, window_start).date().isoformat(), "start": b_start.isoformat(),
+                "end": b_end.isoformat(), "label": "(booked)", "title": None, "owner": uid,
+                "owner_name": names[uid], "source_timezone": None})
+
     # ---- Merge busy intervals ----
     merged_busy = merge_intervals(all_busy)
 
@@ -323,6 +352,7 @@ def merge_users_availability(
     return {
         "busy_times": busy_output,
         "ranked_free_time": results,
+        "bookings": visible_bookings,
         # The settings actually used, when a group's admin has set them.
         "group_settings": group_settings,
         # False when a group was asked for but you're not in it (removed, or it was deleted),
@@ -488,6 +518,7 @@ def delete_group(group_id: str = Query(...), user_id: str = Depends(get_current_
     conn.execute("DELETE FROM group_members WHERE group_id = ?", (group_id,))
     conn.execute("DELETE FROM group_bans WHERE group_id = ?", (group_id,))
     conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    conn.execute("UPDATE bookings SET cancelled = 1 WHERE group_id = ?", (group_id,))
     conn.execute(
         "INSERT INTO deleted_groups (id, at_ms) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
         (group_id, int(datetime.now().timestamp() * 1000))

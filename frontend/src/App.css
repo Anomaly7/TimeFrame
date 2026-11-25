@@ -1494,3 +1494,30 @@
 
 /* Google auto-sync (2026-11-25) */
 .sync-line { margin: -0.2rem 0 0.55rem; font-size: 0.8rem; color: var(--text-muted); }
+
+/* ---- 2026-11-25 features: booking, Plan tab ---- */
+.timeline-block.best-free.pickable { cursor: pointer; transition: box-shadow .15s ease, transform .15s ease; }
+.timeline-block.best-free.pickable:hover, .timeline-block.best-free.pickable:focus-visible {
+  box-shadow: 0 0 0 2px var(--tl-best); outline: none; }
+.timeline-block.booked { left: 2px; right: 2px; z-index: 1; background: var(--accent-soft); border-left-color: var(--accent);
+  color: var(--accent); font-weight: 600; }
+.timeline-legend .swatch.booked { background: var(--accent); }
+.muted-line { margin: 0.2rem 0 0.7rem; font-size: 0.86rem; color: var(--text-muted); line-height: 1.45; }
+.hint-warn { margin: 0 0 0.6rem; font-size: 0.82rem; color: #b45309; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.75rem; flex: 1 1 0; min-width: 0; }
+.field > span { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.field input, .field select, .field textarea { padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: 9px; font: inherit;
+  background: var(--surface); color: var(--text); min-width: 0; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-translucent); }
+.field-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.modal h2 { margin: 0 0 0.4rem; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+.add-cal { margin: 0.4rem 0 0.8rem; }
+.add-cal a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.add-cal.compact { margin: 0.2rem 0 0; }
+.plan-title { margin: 0.1rem 0 0; font-weight: 700; font-size: 1rem; }
+.plan-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.plan-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.85rem;
+  padding: 0.45rem 0.55rem; border-radius: 9px; background: var(--surface-muted); }
+.plan-list li small { color: var(--text-muted); }
+.plan-list .btn { flex: none; }
+.plan-next { border: 1.5px solid var(--accent-translucent); }

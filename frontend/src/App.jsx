@@ -14,6 +14,8 @@ import SettingsPanel from "./components/SettingsPanel";
 import ImportIcs from "./components/ImportIcs";
 import GroupsPanel from "./components/GroupsPanel";
 import UpgradeModal from "./components/UpgradeModal";
+import BookModal from "./components/BookModal";
+import PlanPanel from "./components/PlanPanel";
 import { hideLoader, showLoader } from "./loading";
 
 const MY_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -208,6 +210,10 @@ export default function App() {
     setToast({ text, kind });
     toastTimer.current = setTimeout(() => setToast(null), 7000);
   }
+  // Booking a free slot (BookModal) and the booked meetings in view.
+  const [bookSlot, setBookSlot] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [planRefresh, setPlanRefresh] = useState(0);
   // Sidebar tab, remembered between visits.
   const [sideTab, setSideTab] = useState(() => localStorage.getItem("sideTab") || "groups");
   function pickSideTab(tab) {
@@ -613,6 +619,7 @@ export default function App() {
     }
     setBusyTimes(data.busy_times);
     setFreeTimes(data.ranked_free_time);
+    setBookings(data.bookings || []);
     } finally {
       setFetching((n) => Math.max(0, n - 1));
     }
@@ -829,6 +836,18 @@ export default function App() {
         />
       )}
 
+      {bookSlot && (
+        <BookModal
+          slot={bookSlot}
+          group={activeGroup}
+          meetingLength={effectiveSettings.meetingLength}
+          authHeaders={authHeaders}
+          notify={showToast}
+          onClose={() => setBookSlot(null)}
+          onBooked={() => { setPlanRefresh((n) => n + 1); fetchAvailability(manualBusy).catch(() => {}); }}
+        />
+      )}
+
       <div className="dash-body">
         <main className="dash-main">
           <div className="dash-toolbar">
@@ -904,6 +923,8 @@ export default function App() {
               dayEndHour={parseInt(effectiveSettings.dayEnd.split(":")[0], 10)}
               timezone={MY_TIMEZONE}
               currentUserId={localStorage.getItem("userId")}
+              bookings={bookings}
+              onPickSlot={setBookSlot}
             />
           )}
         </main>
@@ -911,6 +932,7 @@ export default function App() {
         <aside className="dash-side">
           <div className="side-tabs" role="tablist" aria-label="Sidebar">
             {[
+              ["plan", "Plan", bookings.length || null],
               ["groups", "Groups", groups.length || null],
               ["calendars", "Calendars", [googleConnected, appleConnected, notionConnected].filter(Boolean).length || null],
               ["busy", "Busy times", manualBusy.length || null],
@@ -927,6 +949,18 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          <section className="side-section" hidden={sideTab !== "plan"}>
+            <PlanPanel
+              authHeaders={authHeaders}
+              group={activeGroup}
+              freeTimes={freeTimes}
+              refreshKey={planRefresh}
+              onBook={setBookSlot}
+              onChanged={() => fetchAvailability(manualBusy).catch(() => {})}
+              notify={showToast}
+            />
+          </section>
 
           <section className="side-section" hidden={sideTab !== "groups"}>
             <GroupsPanel

@@ -7,13 +7,16 @@
   </head>
   <body>
     <header class="top">
-      <div class="logo"><img src="icons/logo.svg" alt="" /><span>TimeFrame</span></div>
+      <div class="logo"><span class="logo-tile"><img src="icons/logo.svg" alt="" /></span><span>TimeFrame</span></div>
       <button id="open" class="ghost" title="Open TimeFrame">Open ↗</button>
     </header>
 
     <section id="signed-out" hidden>
-      <h1>Sign in to TimeFrame</h1>
-      <p class="muted small">Use the same account as timeframecalender.com.</p>
+      <div class="hero">
+        <h1>Find a time that works for everyone.</h1>
+        <p>Sign in with the same account as timeframecalender.com.</p>
+      </div>
+      <div class="card">
       <button id="google" class="provider">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         <span>Continue with Google</span>
@@ -27,6 +30,7 @@
       </form>
       <p id="signin-error" class="error small"></p>
       <p class="muted small more">Apple Calendar, Notion or a new account? <button id="signin" class="link small">Use the website</button></p>
+      </div>
     </section>
 
     <section id="need-pro" hidden>
@@ -45,6 +49,7 @@
         <select id="group" aria-label="Whose calendars"></select>
         <button id="copy-link" class="ghost small" hidden>Copy group link</button>
       </div>
+      <div class="card cal-card">
       <div class="week-nav">
         <button id="prev-week" class="ghost icon" aria-label="Previous week">&#8249;</button>
         <span id="week-label">Next 7 days</span>
@@ -52,6 +57,7 @@
       </div>
       <div id="cal" class="cal"></div>
       <div id="legend" class="legend"></div>
+      </div>
       <div id="pick" class="pick" hidden>
         <div><div id="pick-badge" class="badge"></div><div id="pick-when" class="pick-when"></div></div>
         <button id="pick-copy" class="ghost">Copy</button>

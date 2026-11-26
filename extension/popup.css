@@ -95,3 +95,60 @@ select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border
 #need-pro .foot { text-align: left; }
 .pro-pill { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #fff; padding: 3px 8px; border-radius: 999px;
   background: linear-gradient(135deg, #5b5ff0, #7c3aed); }
+
+
+/* ---------- 2026-11-26 redesign: matches the website (gradient header, periwinkle canvas, white cards) ---------- */
+:root { --canvas: #eef0fb; --card: #ffffff; --shadow: 0 1px 2px rgba(30,27,75,.05), 0 10px 26px -12px rgba(30,27,75,.18);
+  --grad: linear-gradient(135deg, #4f46e5 0%, #4c6fe8 55%, #7c3aed 120%); }
+@media (prefers-color-scheme: dark) { :root { --canvas: #14151f; --card: #1c1e2b; --shadow: none; } }
+body { background: var(--canvas); font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; }
+.top { background: var(--grad); color: #fff; border-bottom: 0; padding: 14px 16px; }
+.logo { font-size: 16px; letter-spacing: -0.01em; }
+.logo-tile { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.logo-tile img, .logo img { width: 22px; height: 22px; box-shadow: none; border-radius: 0; }
+.top .ghost { background: rgba(255,255,255,.16); color: #fff; border-color: rgba(255,255,255,.28); border-radius: 999px; padding: 6px 12px; }
+.top .ghost:hover { background: rgba(255,255,255,.26); }
+section { padding: 14px 14px 12px; }
+.card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 12px; }
+@media (prefers-color-scheme: dark) { .card { border: 1px solid var(--border); } }
+
+/* group picker + link: pills */
+.row select { border-radius: 999px; padding: 8px 12px; background: var(--card); border-color: transparent; box-shadow: var(--shadow); font-weight: 600; }
+@media (prefers-color-scheme: dark) { .row select { border-color: var(--border); } }
+.row .ghost.small { border-radius: 999px; padding: 8px 12px; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.row .ghost.small:hover { filter: brightness(0.97); }
+
+/* calendar card */
+.cal-card { margin-top: 12px; padding: 10px 10px 12px; }
+.cal-card .week-nav { margin: 0 0 8px; }
+.week-nav span { color: var(--text); letter-spacing: .04em; }
+.ghost.icon { border-radius: 999px; border-color: transparent; background: var(--muted-bg); }
+.cal-track { background-color: var(--muted-bg); border-radius: 8px; }
+.cal-busy { border-radius: 4px; }
+.cal-free { border-radius: 6px; }
+.cal-day.today .cal-head b { background: var(--grad); }
+.legend { margin-top: 10px; gap: 6px; }
+.legend span { background: var(--muted-bg); padding: 3px 8px; border-radius: 999px; }
+
+/* best time */
+.pick { margin-top: 12px; padding: 12px 14px; border: 0; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); }
+.pick.best { background: linear-gradient(135deg, var(--good-soft), var(--card)); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+.pick-when { font-size: 14px; margin-top: 2px; }
+.pick .ghost { border-radius: 999px; padding: 7px 14px; background: var(--good); color: #fff; border-color: transparent; }
+@media (prefers-color-scheme: dark) { .pick .ghost { color: #0b1a12; } }
+
+#status { text-align: center; margin: 10px 0 0; }
+.foot { margin-top: 12px; padding-top: 10px; border-top: 0; }
+
+/* signed out */
+#signed-out { padding: 0 0 14px; }
+.hero { background: var(--grad); color: #fff; padding: 6px 18px 46px; }
+.hero h1 { font-size: 22px; line-height: 1.15; letter-spacing: -0.02em; margin: 4px 0 6px; }
+.hero p { margin: 0; font-size: 12.5px; opacity: .85; }
+#signed-out .card { margin: -32px 14px 0; position: relative; padding: 14px; }
+#signed-out .provider { margin-top: 0; border-radius: 12px; padding: 11px; }
+#email-form input[type=email], #email-form input[type=password] { border-radius: 10px; padding: 10px 12px; background: var(--muted-bg); border-color: transparent; }
+.primary { border-radius: 12px; padding: 11px; background: var(--grad); box-shadow: 0 6px 16px -6px rgba(79,70,229,.6); }
+.primary:hover { filter: brightness(1.05); }
+.row .ghost.small { background: var(--card); box-shadow: var(--shadow); }
+@media (prefers-color-scheme: dark) { .row .ghost.small { background: var(--accent-soft); } }

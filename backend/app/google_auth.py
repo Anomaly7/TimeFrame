@@ -130,10 +130,10 @@ def login(app_redirect: str | None = None, consent: bool = False):
     if app_redirect and not app_target:
         raise HTTPException(status_code=400, detail="That app address isn't allowed.")
     state, nonce = create_oauth_state(app_target)
-    extra = {}
-    # "Turn on auto-sync": Google only hands out a refresh token on the consent screen, so ask for it again.
-    if consent:
-        extra["prompt"] = "consent"
+    # Always show Google's account chooser, so after signing out you can pick a different Google account
+    # (without it Google silently reuses the last one; Sam, 2026-11-26). "Turn on auto-sync" also needs the
+    # consent screen, since Google only hands out a refresh token there.
+    extra = {"prompt": "select_account consent" if consent else "select_account"}
     auth_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",

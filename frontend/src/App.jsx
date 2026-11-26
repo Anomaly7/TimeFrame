@@ -632,6 +632,14 @@ export default function App() {
   // removing, Find Free Time, Clear). Anything else is a plain refresh that
   // leaves them alone - so opening the app on a device with nothing stored
   // locally can never wipe them.
+  // The rest of the year finished importing after sign-in (main.jsx): show it.
+  useEffect(() => {
+    const onImported = () => fetchAvailability(manualBusy).catch(() => {});
+    window.addEventListener("tf-calendar-imported", onImported);
+    return () => window.removeEventListener("tf-calendar-imported", onImported);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+
   async function fetchAvailability(extraBusy = [], { save = false } = {}) {
     const token = tokenFromUrl || getToken();
     if (!token) return;

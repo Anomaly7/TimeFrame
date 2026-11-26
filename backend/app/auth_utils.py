@@ -41,11 +41,29 @@ def _db():
         return None
 
 
+# Speed (2026-11-26): every request checked bans and deletions with two database trips. Both lists are tiny, so
+# they're read together and kept for 30 seconds; the admin page clears this the moment it bans or deletes someone.
+_BLOCK_TTL = 30.0
+_block = {"at": 0.0, "conn": None, "bans": set(), "deleted": {}}
+
+
+def forget_block_cache() -> None:
+    _block["at"] = 0.0
+
+
+def _blocklist(conn):
+    now = time.monotonic()
+    if _block["conn"] is not conn or now - _block["at"] > _BLOCK_TTL:
+        bans = {(r[0] or "").strip().lower() for r in conn.execute("SELECT email FROM account_bans").fetchall()}
+        deleted = {(r[0] or "").strip().lower(): int(r[1]) for r in conn.execute("SELECT user_id, at_ms FROM account_deletions").fetchall()}
+        _block.update(at=now, conn=conn, bans=bans, deleted=deleted)
+    return _block
+
+
 def is_banned(email: str) -> bool:
     """The owner banned this email on the admin page (Sam, 2026-11-24)."""
     conn = _db()
-    return bool(conn) and bool(conn.execute(
-        "SELECT 1 FROM account_bans WHERE email = ?", ((email or "").strip().lower(),)).fetchone())
+    return bool(conn) and (email or "").strip().lower() in _blocklist(conn)["bans"]
 
 
 def check_not_banned(email: str):
@@ -59,9 +77,8 @@ def _deleted_after(user_id: str, issued_ms) -> bool:
     conn = _db()
     if not conn:
         return False
-    row = conn.execute(
-        "SELECT at_ms FROM account_deletions WHERE user_id = ?", ((user_id or "").strip().lower(),)).fetchone()
-    return bool(row) and (not isinstance(issued_ms, int) or issued_ms <= int(row[0]))
+    at = _blocklist(conn)["deleted"].get((user_id or "").strip().lower())
+    return at is not None and (not isinstance(issued_ms, int) or issued_ms <= at)
 
 
 def create_session_token(user_id: str, ttl_seconds: int = TOKEN_TTL_SECONDS) -> str:

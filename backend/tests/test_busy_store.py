@@ -56,6 +56,7 @@ def test_google_callback_saves_every_event_page(client, monkeypatch):
 
     monkeypatch.setattr(ga, "get_flow", lambda: FakeFlow())
     monkeypatch.setattr(ga, "build", lambda *a, **k: Service())
+    monkeypatch.setattr(ga, "IMPORT_IN_BACKGROUND", False)
     monkeypatch.setattr(ga, "verify_oauth_state", lambda s, c: True)
 
     r = client.get("/auth/callback?state=x&code=y", follow_redirects=False)

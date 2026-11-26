@@ -13,6 +13,9 @@ from app.availability import parse_event, find_free_time, PST
 from app.auth_utils import (REMEMBER_TTL_SECONDS, SHORT_TTL_SECONDS, create_oauth_state, clean_text, create_session_token, is_banned, BANNED_DETAIL,
                             get_current_user, oauth_state_app_redirect, safe_app_redirect, verify_oauth_state)
 from datetime import datetime, time, timedelta
+import threading
+import time as _time
+from concurrent.futures import ThreadPoolExecutor
 from app.db import conn
 from app.busy_store import insert_busy_rows
 
@@ -169,18 +172,21 @@ def callback(request: Request):
         return RedirectResponse(f"{back_to}#auth_error=" + quote("Google sign-in failed. Please try again."))
     credentials = flow.credentials
 
+    # Speed (Sam, 2026-11-26): only confirm who this is here, then send the browser straight back to the app's loading
+    # screen. The calendar import runs in the background (next 5 weeks first, then the rest of the year) and the
+    # site polls /auth/import-status, instead of the person staring at Google's page while a year of events loads.
     try:
-        user_id = _import_google(credentials)
+        user_id = _sign_in_google(credentials)
     except _Banned:
         return RedirectResponse(f"{back_to}#auth_error=" + quote(BANNED_DETAIL))
     except Exception:
-        # Google hiccup after sign-in (calendar list or events failed): say so instead of a raw server error page.
         return RedirectResponse(f"{back_to}#auth_error=" + quote("Couldn't read your Google Calendar. Please try again."))
+    start_import(user_id, credentials)
 
     token = create_session_token(user_id)
     # In the #fragment, not the ?query: fragments are never sent to servers,
     # so the token doesn't land in Vercel's logs or Referer headers.
-    response = RedirectResponse(f"{back_to}#user={quote(user_id)}&token={quote(token)}")
+    response = RedirectResponse(f"{back_to}#user={quote(user_id)}&token={quote(token)}&importing=1")
     response.delete_cookie(STATE_COOKIE, path="/auth")
     return response
 
@@ -189,40 +195,20 @@ class _Banned(Exception):
     pass
 
 
-def _import_google(credentials) -> str:
-    """Sign-in: saves the user and their Google busy times, keeps the refresh token for auto-sync when the server
-    has a key for it (google_sync.py); returns their user id."""
+def _sign_in_google(credentials) -> str:
+    """Who this is (one Google call), saved as a verified account, plus the refresh token for auto-sync."""
     from app.google_sync import save_refresh_token
-    user_id = import_google_events(credentials)
-    save_refresh_token(user_id, getattr(credentials, "refresh_token", None))
-    conn.commit()
-    return user_id
-
-
-def import_google_events(credentials, expect_user: str | None = None) -> str:
-    """Saves the user and their Google busy times; returns their user id. expect_user (auto-sync): the account the
-    stored token belongs to; anything else is refused rather than written to another account."""
-    service = build("calendar", "v3", credentials=credentials)
-
-    # A full year out (plus a week back) so Month view has real data
-    # whenever the user navigates within the synced range, not just the
-    # current week.
-    today = datetime.now(PST).date()
-    now = datetime.combine(today - timedelta(days=7), time.min, tzinfo=PST).isoformat()
-    end = datetime.combine(today + timedelta(days=366), time.max, tzinfo=PST).isoformat()
-
-    # Use calendar account email as user identity
-    calendar = build("calendar", "v3", credentials=credentials)
-
-    calendar_info = calendar.calendarList().get(calendarId="primary").execute()
-    email = calendar_info["id"]   # usually the email
-    user_id = email               # simple + stable
-    if expect_user is not None and email.strip().lower() != expect_user.strip().lower():
-        raise RuntimeError("Stored Google token belongs to a different account")
+    service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
+    email = service.calendarList().get(calendarId="primary").execute()["id"]
     if is_banned(email):
         raise _Banned()
+    _save_user(email)
+    save_refresh_token(email, getattr(credentials, "refresh_token", None))
+    conn.commit()
+    return email
 
 
+def _save_user(email: str) -> None:
     # Google has just proven this person owns the address. If someone else
     # had already signed up with it by email/password (never verified),
     # remove that password so they can't sign in and read this calendar.
@@ -231,44 +217,125 @@ def import_google_events(credentials, expect_user: str | None = None) -> str:
            ON CONFLICT (id) DO UPDATE SET
              password_hash = CASE WHEN users.email_verified THEN users.password_hash ELSE NULL END,
              email_verified = TRUE""",
-        (user_id, email)
+        (email, email)
     )
     conn.commit()
 
-    # Every calendar the user has turned on in Google Calendar (classes, work,
-    # gym...), not just the main one - each is a different "type" of event.
-    events, seen_elsewhere = [], set()
-    for calendar_id in calendars_to_import(service):
+
+# ---- background import + status (kept in memory: one server) ----
+IMPORTS: dict = {}
+IMPORT_IN_BACKGROUND = True  # the tests turn this off so they can check the result straight away
+_imports_lock = threading.Lock()
+
+
+def _set_import(user_id: str, **state) -> None:
+    key = user_id.strip().lower()
+    with _imports_lock:
+        IMPORTS[key] = {**IMPORTS.get(key, {}), **state, "at": _time.time()}
+
+
+def start_import(user_id: str, credentials, background: bool | None = None) -> None:
+    background = IMPORT_IN_BACKGROUND if background is None else background
+    _set_import(user_id, state="running", ready=False, imported=0, error=None)
+
+    def run():
         try:
-            cal_events = list_calendar_events(service, calendar_id, now, end)
+            today = datetime.now(PST).date()
+            first = (today - timedelta(days=7), today + timedelta(days=35))
+            n = _write_google(user_id, fetch_google_busy(credentials, *first), *first)
+            _set_import(user_id, ready=True, imported=n)  # the app can open now
+            full = (today - timedelta(days=7), today + timedelta(days=366))
+            busy = fetch_google_busy(credentials, *full)
+            # The full pass replaces everything from Google (same as a re-sync), so nothing is ever doubled up.
+            conn.execute("DELETE FROM busy_times WHERE user_id = ? AND source = 'google'", (user_id,))
+            n = _write_google(user_id, busy, *full)
+            from app.google_sync import mark_synced
+            mark_synced(user_id, "google")
+            conn.commit()
+            _set_import(user_id, state="done", ready=True, imported=n)
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            print(f"Google import failed for a user: {type(e).__name__}", flush=True)
+            _set_import(user_id, state="error", ready=True, error="Couldn't read your Google Calendar. Try Sync now.")
+
+    if background:
+        threading.Thread(target=run, daemon=True).start()
+    else:
+        run()
+
+
+@router.get("/auth/import-status")
+def import_status(user_id: str = Depends(get_current_user)):
+    with _imports_lock:
+        st = dict(IMPORTS.get(user_id.strip().lower()) or {})
+    if not st:
+        return {"state": "none", "ready": True}
+    return {"state": st["state"], "ready": st.get("ready", True), "imported": st.get("imported", 0), "error": st.get("error")}
+
+
+def fetch_google_busy(credentials, day_from, day_to) -> list:
+    """Busy blocks from every calendar the person has turned on, read in parallel (one API client per thread:
+    Google's client isn't thread-safe)."""
+    time_min = datetime.combine(day_from, time.min, tzinfo=PST).isoformat()
+    time_max = datetime.combine(day_to, time.max, tzinfo=PST).isoformat()
+    ids = calendars_to_import(build("calendar", "v3", credentials=credentials, cache_discovery=False))
+
+    def one(calendar_id):
+        svc = build("calendar", "v3", credentials=credentials, cache_discovery=False)
+        try:
+            return calendar_id, list_calendar_events(svc, calendar_id, time_min, time_max)
         except Exception:
-            # One calendar we can't read (e.g. shared as free/busy only) must not
-            # stop the others from importing.
             if calendar_id == "primary":
                 raise
-            continue
-        # The same event can sit on two calendars (e.g. an invite copied to a shared
-        # calendar): skip copies of events already taken from another calendar.
+            return calendar_id, []  # a calendar we can't read (shared as free/busy only) must not stop the rest
+
+    with ThreadPoolExecutor(max_workers=min(6, len(ids) or 1)) as pool:
+        results = dict(pool.map(one, ids))
+    # The same event can sit on two calendars (an invite copied to a shared calendar): keep one copy.
+    events, seen_elsewhere = [], set()
+    for calendar_id in ids:
+        cal_events = results.get(calendar_id, [])
         events.extend(e for e in cal_events if event_key(e) not in seen_elsewhere)
         seen_elsewhere.update(event_key(e) for e in cal_events)
+    return [parse_event(e) for e in events if blocks_time(e)]
 
-    busy = [parse_event(e) for e in events if blocks_time(e)]
 
-    # Store Google Calendar busy times for later merging
+def _write_google(user_id: str, busy: list, day_from, day_to) -> int:
+    """Replaces this person's Google busy times overlapping [day_from, day_to] (text dates) with what Google just
+    returned for that range (Google returns every event overlapping it)."""
+    lo, hi = day_from.isoformat(), day_to.isoformat()
     conn.execute(
-        "DELETE FROM busy_times WHERE user_id = ? AND source = 'google'",
-        (user_id,)
-    )
-
-    insert_busy_rows(
-        (user_id, start.isoformat(), end.isoformat(), "google", raw_timezone, None)
-        for start, end, raw_timezone, _title in busy
-    )
-    from app.google_sync import mark_synced
-    mark_synced(user_id, "google")
-
+        "DELETE FROM busy_times WHERE user_id = ? AND source = 'google' AND substr(end_time, 1, 10) >= ? AND substr(start, 1, 10) <= ?",
+        (user_id, lo, hi))
+    rows = [(user_id, a.isoformat(), b.isoformat(), "google", tz, None) for a, b, tz, _t in busy]
+    insert_busy_rows(rows)
     conn.commit()
-    return user_id
+    return len(rows)
+
+
+def import_google_events(credentials, expect_user=None) -> str:
+    """Full re-sync (auto-sync / Sync now): saves the user and a year of their Google busy times; returns their id.
+    expect_user: the account the stored token belongs to; anything else is refused rather than written elsewhere."""
+    service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
+    email = service.calendarList().get(calendarId="primary").execute()["id"]
+    if expect_user is not None and email.strip().lower() != expect_user.strip().lower():
+        raise RuntimeError("Stored Google token belongs to a different account")
+    if is_banned(email):
+        raise _Banned()
+    _save_user(email)
+    today = datetime.now(PST).date()
+    days = (today - timedelta(days=7), today + timedelta(days=366))
+    busy = fetch_google_busy(credentials, *days)
+    conn.execute("DELETE FROM busy_times WHERE user_id = ? AND source = 'google'", (email,))
+    _write_google(email, busy, *days)
+    from app.google_sync import mark_synced
+    mark_synced(email, "google")
+    conn.commit()
+    return email
+
 
 @router.get("/auth/status")
 def google_status(user_id: str = Depends(get_current_user)):

@@ -27,7 +27,7 @@ async function api(path, options = {}) {
     headers: { Authorization: `Bearer ${state.token}`, "Content-Type": "application/json", ...(options.headers || {}) },
   });
   if (res.status === 401) {
-    await store.remove(["token", "renewedAt"]);
+    await store.remove(["token", "renewedAt", "cache"]);
     showSignedOut();
     throw new Error("signed out");
   }
@@ -72,6 +72,10 @@ const hhmm = (str) => { const [h, m] = String(str).split(":").map(Number); retur
 
 // One week as a small calendar: busy blocks (coloured by person) and the top 3 free slots in green
 // (best one crowned). Tap a green slot to see it below and copy it.
+let loadSeq = 0;
+function showLoading() { $("loading").hidden = false; }
+function hideLoading() { $("loading").hidden = true; }
+
 async function loadSlots() {
   const s = settingsFor(state.groupId);
   const group = state.groupId ? `&group=${encodeURIComponent(state.groupId)}` : "";
@@ -80,13 +84,22 @@ async function loadSlots() {
   $("status").textContent = "Finding times…";
   $("prev-week").disabled = state.week <= 0;
   try {
+    const seq = ++loadSeq;
     const data = await api(`/availability/merge?${q}`, { method: "POST", body: "[]" });
+    if (seq !== loadSeq) return; // a newer request (other group or week) has started
     const now = Date.now();
     const free = (data.ranked_free_time || []).filter((f) => new Date(f.end).getTime() > now).slice(0, 3);
     renderCalendar(data.busy_times || [], free, s);
     $("status").textContent = free.length ? "" : "No shared free time this week.";
+    hideLoading();
+    // Speed (2026-11-26): remember this view so the popup can show it instantly next time, then refresh it.
+    if (state.week === 0) {
+      store.set({ cache: { at: now, groupId: state.groupId, busy: data.busy_times || [], free, settings: s,
+        groups: state.groups, who: $("who").textContent } });
+    }
   } catch (err) {
-    if (err.message !== "signed out") $("status").textContent = "Couldn't load times. The server may be waking up; try again in a moment.";
+    hideLoading();
+    if (err.message !== "signed out") $("status").textContent = "Couldn't load times. Check your connection and try again.";
   }
 }
 
@@ -230,7 +243,7 @@ async function init() {
   $("go-pro").onclick = () => openSite("/?upgrade=1");
   $("signout-free").onclick = () => $("signout").onclick();
   $("signout").onclick = async () => {
-    await store.remove(["token", "renewedAt", "userId"]);
+    await store.remove(["token", "renewedAt", "userId", "cache"]);
     showSignedOut();
   };
   $("copy-link").onclick = async () => {
@@ -295,8 +308,8 @@ function start() {
 }
 
 async function doStart() {
-  const saved = await store.get(["token", "renewedAt", "remember", "groupId", "settings", "userId"]);
-  if (!saved.token) return showSignedOut();
+  const saved = await store.get(["token", "renewedAt", "remember", "groupId", "settings", "userId", "cache"]);
+  if (!saved.token) { hideLoading(); return showSignedOut(); }
   $("signed-out").hidden = true;
   state.token = saved.token;
   state.groupId = saved.groupId || "";
@@ -304,11 +317,26 @@ async function doStart() {
   try { state.personal = { ...DEFAULTS, ...JSON.parse(saved.settings || "{}") }; } catch { /* defaults */ }
   $("signed-in").hidden = false;
 
-  await renew(saved);
+  // Speed (2026-11-26): draw the last view straight away (if it's from today), then refresh everything at once.
+  const cache = saved.cache;
+  const fresh = cache && cache.groupId === state.groupId && new Date(cache.at).toDateString() === new Date().toDateString();
+  if (cache && cache.groups) { state.groups = cache.groups; fillGroups(); }
+  if (fresh) {
+    if (cache.who) $("who").textContent = cache.who;
+    renderCalendar(cache.busy || [], (cache.free || []).filter((f) => new Date(f.end).getTime() > Date.now()), { ...DEFAULTS, ...cache.settings });
+    hideLoading();
+  } else {
+    showLoading();
+  }
+
+  renew(saved); // in the background: it never holds up the calendar
+  const before = JSON.stringify(settingsFor(state.groupId));
+  const slots = loadSlots();
   try {
     const [me, groups, plan] = await Promise.all([api("/auth/me"), api("/groups"), api("/billing/status").catch(() => ({ pro: true }))]);
-    // Free accounts see the Pro screen instead of the calendar (2026-11-20).
-    if (plan && plan.pro === false) {
+    if (plan && plan.pro === false) {  // only if TimeFrame stops being free for everyone
+      loadSeq++;
+      hideLoading();
       $("signed-in").hidden = true;
       $("need-pro").hidden = false;
       $("who-free").textContent = `Signed in as ${me.name || me.email}`;
@@ -318,11 +346,14 @@ async function doStart() {
     $("who").textContent = `Signed in as ${me.name || me.email}`;
     state.userId = me.email || state.userId;
     state.groups = groups.groups || [];
+    store.set({ userId: state.userId });
   } catch (err) {
     if (err.message === "signed out") return;
   }
   fillGroups();
-  loadSlots();
+  // The group's own hours may differ from the ones guessed before the groups arrived: redo the calendar if so.
+  await slots;
+  if (JSON.stringify(settingsFor(state.groupId)) !== before) loadSlots();
 }
 
 init();

@@ -246,10 +246,20 @@ def merge_users_availability(
 
     # Each member's chosen name (or their email before the @) - what other
     # members see on their blocks.
-    names = {}
-    for uid in member_ids:
-        row = conn.execute("SELECT display_name FROM users WHERE id = ?", (uid,)).fetchone()
-        names[uid] = (row[0] if row else None) or uid.split("@")[0]
+    # Speed (Sam, 2026-11-26): one query for every member's name and one for their busy times, and only rows near
+    # the dates being viewed (the text dates have a 2-day margin either side, so time zones can't cut anything off).
+    marks = ",".join("?" for _ in member_ids)
+    found = dict(conn.execute(f"SELECT id, display_name FROM users WHERE id IN ({marks})", tuple(member_ids)).fetchall())
+    names = {uid: found.get(uid) or uid.split("@")[0] for uid in member_ids}
+    lo_day = (window_start - timedelta(days=2)).date().isoformat()
+    hi_day = (window_end + timedelta(days=2)).date().isoformat()
+    rows_by_member = {uid: [] for uid in member_ids}
+    for uid, start, end, source, raw_timezone in conn.execute(
+            f"SELECT user_id, start, end_time, source, raw_timezone FROM busy_times WHERE user_id IN ({marks}) "
+            "AND substr(end_time, 1, 10) >= ? AND substr(start, 1, 10) <= ?",
+            (*member_ids, lo_day, hi_day)).fetchall():
+        if uid in rows_by_member:
+            rows_by_member[uid].append((start, end, source, raw_timezone))
 
     all_busy = []
     busy_output = []
@@ -257,12 +267,7 @@ def merge_users_availability(
     busy_by_member = {uid: [] for uid in member_ids}  # for "everyone but one" suggestions
 
     for uid in member_ids:
-        rows = conn.execute(
-            "SELECT start, end_time, source, raw_timezone FROM busy_times WHERE user_id = ?",
-            (uid,)
-        ).fetchall()
-
-        for start, end, source, raw_timezone in rows:
+        for start, end, source, raw_timezone in rows_by_member[uid]:
             # All-day calendar events (birthdays, "Exam week", holidays...) don't block time (Sam, 2026-11-20).
             # Imports skip them now; this also hides ones saved before that. Hand-made blocks are always kept.
             if source != "manual" and is_all_day_block(start, end):
@@ -308,11 +313,12 @@ def merge_users_availability(
     # ---- Booked meetings (bookings.py) ----
     # Ones the viewer is part of show as "Booked" with their name; anyone else's (another group of a member's, a
     # member's booking page) is just a busy block for that person. All of them count as busy.
-    from app.bookings import bookings_for_user, public as public_booking
+    from app.bookings import bookings_for_users, public as public_booking
     visible_bookings, seen_bookings = [], set()
+    member_bookings = bookings_for_users(member_ids)
     for uid in member_ids:
         mine = uid == user_id
-        for b in bookings_for_user(uid):
+        for b in member_bookings.get(uid, []):
             b_start = datetime.fromisoformat(b["start"]).astimezone(viewer_tz)
             b_end = datetime.fromisoformat(b["end"]).astimezone(viewer_tz)
             if not (b_start < window_end and b_end > window_start):

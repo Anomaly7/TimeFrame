@@ -39,6 +39,8 @@
       .tf-bar span { display: block; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, #5b5ff0, #7c3aed);
         animation: tf-slide 1.25s ease-in-out infinite; }
       @keyframes tf-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+      .tf-msg { margin: -12px 0 0; min-height: 1.2em; font: 500 14px/1.4 Inter, system-ui, sans-serif; color: #6b6f8c; text-align: center; }
+      .tf-msg:empty { display: none; }
       @media (prefers-reduced-motion: reduce) {
         .tf-mark polygon { animation: none; stroke-dashoffset: 0; fill-opacity: 1; }
         .tf-bar span { animation-duration: 3s; }
@@ -49,6 +51,7 @@
     <div id="boot-loader" class="tf-loader" role="status" aria-label="Loading TimeFrame">
       <svg class="tf-mark" viewBox="0 0 64 64" aria-hidden="true"><polygon pathLength="1" points="1.28,16.73 39.82,16.73 35.45,24.73 28.00,24.73 32.55,32.36 38.18,24.73 43.27,16.73 62.72,16.73 54.90,24.73 46.72,24.73 44.18,31.09 48.54,31.09 42.54,36.54 38.36,36.91 32.36,47.27 17.28,24.73 9.28,24.73"/></svg>
       <div class="tf-bar"><span></span></div>
+      <p id="boot-msg" class="tf-msg"></p>
     </div>
     <div id="root"></div>
     <noscript>

@@ -31,7 +31,7 @@ const mock = {
 };
 
 const b = await chromium.launch({ channel: 'chrome' });
-for (const [n, dark, signedIn] of [['signed-in', false, true], ['signed-in-dark', true, true], ['signed-out', false, false]]) {
+for (const [n, dark, signedIn] of [['loading', false, true], ['signed-in', false, true], ['signed-in-dark', true, true], ['signed-out', false, false]]) {
   const p = await b.newPage({ viewport: { width: 360, height: 640 }, colorScheme: dark ? 'dark' : 'light' });
   await p.addInitScript((signedIn) => {
     const data = signedIn ? { token: 't', groupId: 'Robo2345', userId: 'sam@x.com', renewedAt: Date.now() } : {};
@@ -40,14 +40,15 @@ for (const [n, dark, signedIn] of [['signed-in', false, true], ['signed-in-dark'
       runtime: { sendMessage() {}, lastError: null }, tabs: { create() {} },
     };
   }, signedIn);
-  await p.route('https://calender-app-mm4q.onrender.com/**', (r) => {
+  await p.route('https://calender-app-mm4q.onrender.com/**', async (r) => {
+    if (n === 'loading') await new Promise((res) => setTimeout(res, 4000));
     const path = new URL(r.request().url()).pathname;
     r.fulfill({ json: mock[path] || {}, headers: { 'access-control-allow-origin': '*' } });
   });
   p.on('pageerror', (e) => console.log('pageerror', e.message));
   await p.goto('http://localhost:4791/popup.html');
-  await p.waitForTimeout(1200);
-  if (signedIn) { await p.click('.cal-free.best').catch(() => {}); await p.waitForTimeout(200); }
+  await p.waitForTimeout(n === 'loading' ? 700 : 1200);
+  if (signedIn && n !== 'loading') { await p.click('.cal-free.best').catch(() => {}); await p.waitForTimeout(200); }
   await p.screenshot({ path: `${out}timeframe-ext-${tag}-${n}.png`, fullPage: true });
 }
 await b.close();

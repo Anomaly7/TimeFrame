@@ -100,6 +100,31 @@ def bookings_for_user(user_id: str) -> list[dict]:
     return out
 
 
+def bookings_for_users(user_ids: list[str]) -> dict[str, list[dict]]:
+    """bookings_for_user for several people in 3 queries instead of a few per person (calendar speed, 2026-11-26)."""
+    keys = {_k(u): u for u in user_ids}
+    out = {u: [] for u in user_ids}
+    if not keys:
+        return out
+    marks = ",".join("?" for _ in keys)
+    groups_of = {}
+    for uid, gid in conn.execute(
+            f"SELECT user_id, group_id FROM group_members WHERE LOWER(TRIM(user_id)) IN ({marks})", tuple(keys)).fetchall():
+        groups_of.setdefault(_k(uid), set()).add(gid)
+    all_groups = sorted({g for gs in groups_of.values() for g in gs})
+    by_group = {}
+    if all_groups:
+        gmarks = ",".join("?" for _ in all_groups)
+        for b in _upcoming(conn.execute(f"SELECT {COLS} FROM tf_bookings WHERE group_id IN ({gmarks})", tuple(all_groups)).fetchall()):
+            by_group.setdefault(b["group_id"], []).append(b)
+    hosted = _upcoming(conn.execute(f"SELECT {COLS} FROM tf_bookings WHERE LOWER(TRIM(host)) IN ({marks})", tuple(keys)).fetchall())
+    for key, uid in keys.items():
+        for gid in sorted(groups_of.get(key, ())):
+            out[uid].extend(by_group.get(gid, []))
+        out[uid].extend(b for b in hosted if _k(b["host"]) == key)
+    return out
+
+
 def public(b: dict, viewer: str) -> dict:
     """What a member sees: the booker's contact details only for the host of a booking-page booking."""
     out = {k: b[k] for k in ("id", "group_id", "title", "start", "end", "created_at", "note")}

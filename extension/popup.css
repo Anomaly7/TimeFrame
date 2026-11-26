@@ -152,3 +152,20 @@ section { padding: 14px 14px 12px; }
 .primary:hover { filter: brightness(1.05); }
 .row .ghost.small { background: var(--card); box-shadow: var(--shadow); }
 @media (prefers-color-scheme: dark) { .row .ghost.small { background: var(--accent-soft); } }
+
+
+/* Loading screen (2026-11-26): the website's animated logo, shown only until the first calendar arrives */
+.loading { position: absolute; left: 0; right: 0; top: 58px; bottom: 0; z-index: 5; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px; background: var(--canvas); min-height: 380px; }
+.loading[hidden] { display: none; }
+.loading p { margin: 0; font-size: 13px; color: var(--muted); font-weight: 500; }
+.tf-mark { width: 96px; height: 96px; overflow: visible; margin-bottom: -24px; }
+.tf-mark polygon { stroke: #5b5ff0; stroke-width: 1.1; stroke-linejoin: round; fill: #5b5ff0; fill-opacity: 0;
+  stroke-dasharray: 1; stroke-dashoffset: 1; animation: tf-draw 2.4s cubic-bezier(.65,0,.35,1) infinite; }
+@keyframes tf-draw { 0% { stroke-dashoffset: 1; fill-opacity: 0; } 45% { stroke-dashoffset: 0; fill-opacity: 0; }
+  62% { stroke-dashoffset: 0; fill-opacity: 1; } 85% { stroke-dashoffset: 0; fill-opacity: 1; opacity: 1; } 100% { stroke-dashoffset: 0; fill-opacity: 1; opacity: 0; } }
+.tf-bar { width: 120px; height: 4px; border-radius: 999px; background: rgba(91,95,240,.15); overflow: hidden; }
+.tf-bar span { display: block; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, #5b5ff0, #7c3aed);
+  animation: tf-slide 1.25s ease-in-out infinite; }
+@keyframes tf-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+body { position: relative; min-height: 440px; }

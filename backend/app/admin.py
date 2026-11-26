@@ -465,6 +465,7 @@ def delete_account(uid: str) -> str:
     conn.execute("DELETE FROM account_deletions WHERE user_id = ?", (me,))
     conn.execute("INSERT INTO account_deletions (user_id, at_ms) VALUES (?, ?)", (me, int(time.time() * 1000)))
     conn.commit()
+    from app.auth_utils import forget_block_cache; forget_block_cache()
     return note
 
 
@@ -493,6 +494,7 @@ def change_ban(body: dict = Body(...), ip: str = Depends(require_admin)):
     if body.get("action") == "unban":
         conn.execute("DELETE FROM account_bans WHERE email = ?", (email,))
         conn.commit()
+        from app.auth_utils import forget_block_cache; forget_block_cache()
         audit(ip, "unban", email)
         return _json({"ok": True, "message": f"{email} can sign in again."})
     if body.get("action") != "ban":
@@ -509,6 +511,7 @@ def change_ban(body: dict = Body(...), ip: str = Depends(require_admin)):
     conn.execute("DELETE FROM account_bans WHERE email = ?", (email,))
     conn.execute("INSERT INTO account_bans (email, reason, at) VALUES (?, ?, ?)", (email, reason, int(time.time())))
     conn.commit()
+    from app.auth_utils import forget_block_cache; forget_block_cache()
     audit(ip, "ban", email + (f" ({reason})" if reason else "") + (" + deleted" if body.get("delete") else ""))
     alert(f"TimeFrame admin: banned {email}.")
     return _json({"ok": True, "message": f"{email} is banned: it can't sign in or sign up, and any open sessions stop working.{note}"})

@@ -17,12 +17,12 @@ router = APIRouter()
 MAX_UPCOMING = 200
 
 ensure_tables([
-    """CREATE TABLE IF NOT EXISTS bookings (
+    """CREATE TABLE IF NOT EXISTS tf_bookings (
         id TEXT PRIMARY KEY, group_id TEXT, title TEXT, start TEXT, end_time TEXT, created_by TEXT,
         created_at BIGINT, cancelled INTEGER DEFAULT 0, host TEXT, guest_name TEXT, guest_email TEXT, note TEXT)""",
-    "CREATE INDEX IF NOT EXISTS bookings_group ON bookings (group_id)",
-    "CREATE INDEX IF NOT EXISTS bookings_host ON bookings (host)",
-], ["bookings"])
+    "CREATE INDEX IF NOT EXISTS tf_bookings_group ON tf_bookings (group_id)",
+    "CREATE INDEX IF NOT EXISTS tf_bookings_host ON tf_bookings (host)",
+], ["tf_bookings"])
 
 
 def _k(user_id) -> str:
@@ -52,7 +52,7 @@ def create_booking(group_id, title, start: datetime, end: datetime, created_by, 
     """The caller has checked permissions. Commits."""
     bid = secrets.token_urlsafe(9)
     conn.execute(
-        "INSERT INTO bookings (id, group_id, title, start, end_time, created_by, created_at, cancelled, host, guest_name, guest_email, note) "
+        "INSERT INTO tf_bookings (id, group_id, title, start, end_time, created_by, created_at, cancelled, host, guest_name, guest_email, note) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)",
         (bid, group_id, title, start.isoformat(), end.isoformat(), created_by, int(_time.time()), host, guest_name, guest_email, note))
     conn.commit()
@@ -70,7 +70,7 @@ COLS = "id, group_id, title, start, end_time, created_by, created_at, cancelled,
 
 
 def booking(bid: str) -> dict | None:
-    row = conn.execute(f"SELECT {COLS} FROM bookings WHERE id = ?", (bid,)).fetchone()
+    row = conn.execute(f"SELECT {COLS} FROM tf_bookings WHERE id = ?", (bid,)).fetchone()
     return _row_to_dict(row) if row else None
 
 
@@ -83,7 +83,7 @@ def _upcoming(rows) -> list[dict]:
 
 
 def group_bookings(group_id: str) -> list[dict]:
-    return _upcoming(conn.execute(f"SELECT {COLS} FROM bookings WHERE group_id = ?", (group_id,)).fetchall())
+    return _upcoming(conn.execute(f"SELECT {COLS} FROM tf_bookings WHERE group_id = ?", (group_id,)).fetchall())
 
 
 def user_groups(user_id: str) -> list[str]:
@@ -96,7 +96,7 @@ def bookings_for_user(user_id: str) -> list[dict]:
     out = []
     for gid in user_groups(user_id):
         out.extend(group_bookings(gid))
-    out.extend(_upcoming(conn.execute(f"SELECT {COLS} FROM bookings WHERE LOWER(TRIM(host)) = ?", (_k(user_id),)).fetchall()))
+    out.extend(_upcoming(conn.execute(f"SELECT {COLS} FROM tf_bookings WHERE LOWER(TRIM(host)) = ?", (_k(user_id),)).fetchall()))
     return out
 
 
@@ -174,7 +174,7 @@ def cancel_booking(id: str = Query(...), user_id: str = Depends(get_current_user
         _require_member(b["group_id"], user_id)
     if not public(b, user_id)["can_cancel"]:
         raise HTTPException(status_code=403, detail="Only whoever booked it, or the group's admin, can cancel it.")
-    conn.execute("UPDATE bookings SET cancelled = 1 WHERE id = ?", (id,))
+    conn.execute("UPDATE tf_bookings SET cancelled = 1 WHERE id = ?", (id,))
     conn.commit()
     if b["group_id"]:
         from app.notifications import notify_group

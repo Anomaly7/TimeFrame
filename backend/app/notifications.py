@@ -29,12 +29,12 @@ REMIND_BEFORE = timedelta(minutes=60)
 MAX_SUBS_PER_USER = 10
 
 ensure_tables([
-    """CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, user_id TEXT, kind TEXT, text TEXT, data TEXT,
+    """CREATE TABLE IF NOT EXISTS tf_notifications (id TEXT PRIMARY KEY, user_id TEXT, kind TEXT, text TEXT, data TEXT,
         created_at BIGINT, is_read INTEGER DEFAULT 0)""",
-    "CREATE INDEX IF NOT EXISTS notifications_user ON notifications (user_id)",
+    "CREATE INDEX IF NOT EXISTS tf_notifications_user ON tf_notifications (user_id)",
     "CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT, p256dh TEXT, auth TEXT, created_at BIGINT)",
     "CREATE TABLE IF NOT EXISTS booking_reminders (booking_id TEXT PRIMARY KEY, at BIGINT)",
-], ["notifications", "push_subs", "booking_reminders"])
+], ["tf_notifications", "push_subs", "booking_reminders"])
 
 
 def _k(u) -> str:
@@ -96,9 +96,9 @@ def _send_push(user_id: str, payload: dict) -> None:
 # ---------- Sending ----------
 def notify_user(user_id, kind, text, data=None) -> None:
     now = int(_time.time())
-    conn.execute("INSERT INTO notifications (id, user_id, kind, text, data, created_at, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)",
+    conn.execute("INSERT INTO tf_notifications (id, user_id, kind, text, data, created_at, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)",
                  (secrets.token_urlsafe(9), _k(user_id), kind, text[:300], json.dumps(data or {}), now))
-    conn.execute("DELETE FROM notifications WHERE user_id = ? AND created_at < ?", (_k(user_id), now - KEEP_SECONDS))
+    conn.execute("DELETE FROM tf_notifications WHERE user_id = ? AND created_at < ?", (_k(user_id), now - KEEP_SECONDS))
     conn.commit()
     _send_push(user_id, {"title": "TimeFrame", "body": text[:300], "kind": kind, "data": data or {}})
 
@@ -131,7 +131,7 @@ def send_due_reminders() -> int:
     from app.bookings import COLS, _row_to_dict
     now = datetime.now(timezone.utc)
     sent = 0
-    for row in conn.execute(f"SELECT {COLS} FROM bookings WHERE cancelled = 0").fetchall():
+    for row in conn.execute(f"SELECT {COLS} FROM tf_bookings WHERE cancelled = 0").fetchall():
         b = _row_to_dict(row)
         start = datetime.fromisoformat(b["start"])
         if not (now <= start <= now + REMIND_BEFORE):
@@ -181,7 +181,7 @@ def start_reminder_loop() -> None:
 @router.get("/notifications")
 def list_notifications(user_id: str = Depends(get_current_user)):
     maybe_send_reminders()
-    rows = conn.execute("SELECT id, kind, text, data, created_at, is_read FROM notifications WHERE user_id = ? "
+    rows = conn.execute("SELECT id, kind, text, data, created_at, is_read FROM tf_notifications WHERE user_id = ? "
                         "ORDER BY created_at DESC LIMIT 40", (_k(user_id),)).fetchall()
     items = [{"id": r[0], "kind": r[1], "text": r[2], "data": json.loads(r[3] or "{}"), "created_at": r[4], "read": bool(r[5])}
              for r in rows]
@@ -190,7 +190,7 @@ def list_notifications(user_id: str = Depends(get_current_user)):
 
 @router.post("/notifications/read")
 def mark_read(user_id: str = Depends(get_current_user)):
-    conn.execute("UPDATE notifications SET is_read = 1 WHERE user_id = ?", (_k(user_id),))
+    conn.execute("UPDATE tf_notifications SET is_read = 1 WHERE user_id = ?", (_k(user_id),))
     conn.commit()
     return {"read": True}
 

@@ -574,8 +574,8 @@ def delete_group(group_id: str = Query(...), user_id: str = Depends(get_current_
     conn.execute("DELETE FROM group_members WHERE group_id = ?", (group_id,))
     conn.execute("DELETE FROM group_bans WHERE group_id = ?", (group_id,))
     conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
-    conn.execute("UPDATE bookings SET cancelled = 1 WHERE group_id = ?", (group_id,))
-    conn.execute("UPDATE polls SET closed = 1 WHERE group_id = ?", (group_id,))
+    conn.execute("UPDATE tf_bookings SET cancelled = 1 WHERE group_id = ?", (group_id,))
+    conn.execute("UPDATE tf_polls SET closed = 1 WHERE group_id = ?", (group_id,))
     conn.execute("DELETE FROM group_notes WHERE group_id = ?", (group_id,))
     conn.execute("DELETE FROM group_prefs WHERE group_id = ?", (group_id,))
     conn.execute(

@@ -15,12 +15,12 @@ router = APIRouter()
 MAX_OPEN = 20
 
 ensure_tables([
-    """CREATE TABLE IF NOT EXISTS polls (id TEXT PRIMARY KEY, group_id TEXT, title TEXT, options TEXT, created_by TEXT,
+    """CREATE TABLE IF NOT EXISTS tf_polls (id TEXT PRIMARY KEY, group_id TEXT, title TEXT, options TEXT, created_by TEXT,
         created_at BIGINT, closed INTEGER DEFAULT 0, winner INTEGER, booking_id TEXT)""",
-    "CREATE INDEX IF NOT EXISTS polls_group ON polls (group_id)",
-    "CREATE TABLE IF NOT EXISTS poll_votes (poll_id TEXT, user_id TEXT, option INTEGER)",
-    "CREATE INDEX IF NOT EXISTS poll_votes_poll ON poll_votes (poll_id)",
-], ["polls", "poll_votes"])
+    "CREATE INDEX IF NOT EXISTS tf_polls_group ON tf_polls (group_id)",
+    "CREATE TABLE IF NOT EXISTS tf_poll_votes (poll_id TEXT, user_id TEXT, option INTEGER)",
+    "CREATE INDEX IF NOT EXISTS tf_poll_votes_poll ON tf_poll_votes (poll_id)",
+], ["tf_polls", "tf_poll_votes"])
 
 
 def _k(u) -> str:
@@ -35,7 +35,7 @@ def _can_run(group_id: str, user_id: str) -> bool:
 
 
 def _poll(pid: str):
-    row = conn.execute("SELECT id, group_id, title, options, created_by, created_at, closed, winner, booking_id FROM polls WHERE id = ?",
+    row = conn.execute("SELECT id, group_id, title, options, created_by, created_at, closed, winner, booking_id FROM tf_polls WHERE id = ?",
                        (pid,)).fetchone()
     if not row:
         return None
@@ -57,7 +57,7 @@ def _member_poll(pid: str, user_id: str):
 
 def _view(p: dict, viewer: str) -> dict:
     from app.bookings import display_name
-    votes = conn.execute("SELECT user_id, option FROM poll_votes WHERE poll_id = ?", (p["id"],)).fetchall()
+    votes = conn.execute("SELECT user_id, option FROM tf_poll_votes WHERE poll_id = ?", (p["id"],)).fetchall()
     options = []
     for i, opt in enumerate(p["options"]):
         voters = sorted({uid for uid, o in votes if o == i}, key=_k)
@@ -83,12 +83,12 @@ def create_poll(group_id: str = Query(...), body: dict = Body(...), user_id: str
             raise HTTPException(status_code=400, detail="Each option needs a start and an end.")
         s, e = parse_span(o.get("start"), o.get("end"))
         options.append({"start": s.isoformat(), "end": e.isoformat()})
-    open_count = conn.execute("SELECT COUNT(*) FROM polls WHERE group_id = ? AND closed = 0", (group_id,)).fetchone()[0]
+    open_count = conn.execute("SELECT COUNT(*) FROM tf_polls WHERE group_id = ? AND closed = 0", (group_id,)).fetchone()[0]
     if open_count >= MAX_OPEN:
         raise HTTPException(status_code=400, detail="This group has too many open polls. Close some first.")
     title = clean_text(body.get("title"), 80) or "Group meeting"
     pid = secrets.token_urlsafe(9)
-    conn.execute("INSERT INTO polls (id, group_id, title, options, created_by, created_at, closed) VALUES (?, ?, ?, ?, ?, ?, 0)",
+    conn.execute("INSERT INTO tf_polls (id, group_id, title, options, created_by, created_at, closed) VALUES (?, ?, ?, ?, ?, ?, 0)",
                  (pid, group_id, title, json.dumps(options), user_id, int(_time.time())))
     conn.commit()
     from app.bookings import display_name
@@ -104,7 +104,7 @@ def list_polls(group_id: str = Query(...), user_id: str = Depends(get_current_us
     from app.bookings import _require_member
     _require_member(group_id, user_id)
     cutoff = int(_time.time()) - 3 * 86400
-    rows = conn.execute("SELECT id FROM polls WHERE group_id = ? AND (closed = 0 OR created_at > ?) ORDER BY created_at DESC",
+    rows = conn.execute("SELECT id FROM tf_polls WHERE group_id = ? AND (closed = 0 OR created_at > ?) ORDER BY created_at DESC",
                         (group_id, cutoff)).fetchall()
     return {"polls": [_view(_poll(r[0]), user_id) for r in rows]}
 
@@ -118,9 +118,9 @@ def vote(id: str = Query(...), body: dict = Body(...), user_id: str = Depends(ge
     picks = body.get("options")
     if not isinstance(picks, list) or any(not isinstance(i, int) or isinstance(i, bool) or not 0 <= i < len(p["options"]) for i in picks):
         raise HTTPException(status_code=400, detail="Pick options from the poll.")
-    conn.execute("DELETE FROM poll_votes WHERE poll_id = ? AND LOWER(TRIM(user_id)) = ?", (id, _k(user_id)))
+    conn.execute("DELETE FROM tf_poll_votes WHERE poll_id = ? AND LOWER(TRIM(user_id)) = ?", (id, _k(user_id)))
     for i in sorted(set(picks)):
-        conn.execute("INSERT INTO poll_votes (poll_id, user_id, option) VALUES (?, ?, ?)", (id, user_id, i))
+        conn.execute("INSERT INTO tf_poll_votes (poll_id, user_id, option) VALUES (?, ?, ?)", (id, user_id, i))
     conn.commit()
     return {"poll": _view(_poll(id), user_id)}
 
@@ -143,7 +143,7 @@ def close_poll(id: str = Query(...), body: dict = Body(default={}), user_id: str
         raise HTTPException(status_code=400, detail="Pick an option from the poll.")
     opt = p["options"][pick]
     b = create_booking(p["group_id"], p["title"], datetime.fromisoformat(opt["start"]), datetime.fromisoformat(opt["end"]), user_id)
-    conn.execute("UPDATE polls SET closed = 1, winner = ?, booking_id = ? WHERE id = ?", (pick, b["id"], id))
+    conn.execute("UPDATE tf_polls SET closed = 1, winner = ?, booking_id = ? WHERE id = ?", (pick, b["id"], id))
     conn.commit()
     from app.notifications import notify_group
     notify_group(p["group_id"], "booked", f"The poll is closed: \"{p['title']}\" is booked", exclude=user_id,
@@ -156,7 +156,7 @@ def delete_poll(id: str = Query(...), user_id: str = Depends(get_current_user)):
     p = _member_poll(id, user_id)
     if not _view(p, user_id)["can_manage"]:
         raise HTTPException(status_code=403, detail="Only whoever started the poll, or the admin, can delete it.")
-    conn.execute("DELETE FROM poll_votes WHERE poll_id = ?", (id,))
-    conn.execute("DELETE FROM polls WHERE id = ?", (id,))
+    conn.execute("DELETE FROM tf_poll_votes WHERE poll_id = ?", (id,))
+    conn.execute("DELETE FROM tf_polls WHERE id = ?", (id,))
     conn.commit()
     return {"deleted": True}

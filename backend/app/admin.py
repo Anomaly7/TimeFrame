@@ -449,8 +449,8 @@ def delete_account(uid: str) -> str:
     from app.google_sync import forget_token
     forget_token(me)
     conn.execute("DELETE FROM calendar_sync WHERE user_id = ?", (me,))
-    conn.execute("UPDATE bookings SET cancelled = 1 WHERE LOWER(TRIM(host)) = ?", (me,))
-    conn.execute("DELETE FROM notifications WHERE user_id = ?", (me,))
+    conn.execute("UPDATE tf_bookings SET cancelled = 1 WHERE LOWER(TRIM(host)) = ?", (me,))
+    conn.execute("DELETE FROM tf_notifications WHERE user_id = ?", (me,))
     conn.execute("DELETE FROM push_subs WHERE user_id = ?", (me,))
     conn.execute("DELETE FROM booking_pages WHERE user_id = ?", (me,))
     conn.execute("DELETE FROM group_members WHERE LOWER(TRIM(user_id)) = ?", (me,))

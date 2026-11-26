@@ -138,8 +138,17 @@ def _period_end(sub: dict) -> int:
     return int(end or sub.get("trial_end") or 0)
 
 
+def free_for_all() -> bool:
+    """Sam, 2026-11-26: every account gets Pro, free and automatically. Turn off with TIMEFRAME_FREE_FOR_ALL=0 in Render."""
+    return os.getenv("TIMEFRAME_FREE_FOR_ALL", "1").strip() != "0"
+
+
 def is_pro(user_id: str) -> bool:
     row = _row(user_id)
+    if row and free_for_all():
+        from app.guests import is_guest
+        if not is_guest(user_id):
+            return True  # real accounts only; name-only guests stay guests
     if not row or row[0] != "pro":
         return False
     source, sub_id, until = row[1], row[3], row[4]
@@ -177,6 +186,8 @@ def billing_status(user_id: str = Depends(get_current_user)):
     pro = is_pro(user_id)
     row = _row(user_id)
     source = row[1] if row and pro else None
+    if pro and free_for_all() and not (row and row[0] == "pro"):
+        source = "free_for_all"
     trial = False
     if pro and source == "stripe" and row[3]:
         try:

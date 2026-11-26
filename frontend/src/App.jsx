@@ -565,7 +565,7 @@ export default function App() {
   }, [email]);
 
   const isPro = !!billing?.pro;
-  const proLabel = !billing?.pro ? "" : billing.source === "coupon" ? "Coupon" : billing.trial ? "Free trial" : "";
+  const proLabel = !billing?.pro ? "" : billing.source === "free_for_all" ? "Free for everyone" : billing.source === "coupon" ? "Coupon" : billing.trial ? "Free trial" : "";
 
   // Busy/free times are scoped server-side, so cached results from a
   // previous visit (or an earlier day) are stale as soon as the page

@@ -35,6 +35,7 @@ class FakeConn:
 @pytest.fixture()
 def client(monkeypatch):
     monkeypatch.setenv("SESSION_SECRET", "y" * 40)
+    monkeypatch.setenv("TIMEFRAME_FREE_FOR_ALL", "0")  # tests check the Free/Pro rules; free-for-all has its own test
     import contextvars
     fake_db = types.ModuleType("app.db")
     fake_db.conn = FakeConn()

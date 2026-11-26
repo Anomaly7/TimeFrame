@@ -124,3 +124,14 @@ def test_settings_are_pro_only(client):
     pro = signup(client, "setpro@example.com")  # test schema defaults to Pro
     pro_slots = client.post(url, json=[], headers=pro).json()
     assert free_slots != pro_slots
+
+
+def test_free_for_all_gives_every_account_pro(client, monkeypatch):
+    h = signup(client, "everyone@example.com")
+    make_free(client, "everyone@example.com")
+    assert client.get("/billing/status", headers=h).json()["pro"] is False
+    monkeypatch.setenv("TIMEFRAME_FREE_FOR_ALL", "1")
+    st = client.get("/billing/status", headers=h).json()
+    assert st["pro"] is True and st["source"] == "free_for_all"
+    for gid in ("Free2345", "Free3456"):  # more than the Free plan's 1 group
+        assert client.post(f"/groups/join?group_id={gid}", headers=h).status_code == 200

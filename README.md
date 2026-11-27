@@ -29,6 +29,22 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 - Supports group scheduling via shareable links
 - Offers Day, Week, and Month views with full navigation
 - Saves schedules in a real database so data persists across devices and sessions
+- **Free for everyone:** every account gets every feature, Pro included
+
+---
+
+## Newer Features
+
+- **Google auto-sync:** "Sync now", a "last updated" label, and an optional re-sync every 3 hours. The first Google import runs in the background behind a loading screen.
+- **Book the slot:** book a best time for the group. It shows as "Booked" and counts as busy in members' other groups (without a title). Add it to Google Calendar or download an `.ics`.
+- **Polls:** an admin proposes 2–5 times, members tap to vote, and the winner is booked.
+- **Guest links:** people can join a group with just a name, no account needed. Admins can turn guest joining off.
+- **Smarter suggestions:** "Almost works" times (everyone but one person), a travel buffer, and a weekly recurring-time finder.
+- **Booking page:** a public `timeframecalender.com/<handle>` page where anyone can book time with you.
+- **Group notes and notifications:** pinned notes, a notification bell, 1-hour reminders, and Web Push.
+- **Installable app (PWA):** works offline with your saved calendar, plus a phone-first layout.
+- **Chrome extension** (`extension/`): a toolbar popup with the best free times this week for any group, using the site's sign-in.
+- **Owner admin page and maintenance mode:** accounts, health, bans and account deletion, plus a switch that puts the whole app into maintenance with a message.
 
 ---
 
@@ -84,7 +100,7 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 - Deployed on **Render**
 
 ### Testing
-- `pytest` suite covering the scheduling algorithm and session-token auth (`backend/tests/`)
+- `pytest` suite (~130 tests) covering the scheduling algorithm, session-token auth, billing, the newer features and a security audit (`backend/tests/`)
 
 ---
 
@@ -101,6 +117,11 @@ Users sign in (Google or email/password), connect calendar sources, and instantl
 | `NOTION_REDIRECT_URI` | no | `https://<api-host>/notion/callback` (must match the integration's redirect URI) |
 | `FRONTEND_URL` | no | Where sign-in redirects back to. Default `https://www.timeframecalender.com` |
 | `FRONTEND_ORIGINS` | no | Comma-separated origins allowed to call the API (CORS). Default: the Vercel URL + `http://localhost:5173` |
+| `ADMIN_PASSWORD` | no | Owner admin page at `/admin` (16+ characters; 404 until set) |
+| `OWNER_NTFY_TOPIC` | no | Phone alerts for admin sign-ins and other owner events |
+| `GOOGLE_TOKEN_KEY` | no | Turns on Google auto-sync (encrypts stored refresh tokens). Optional server keys can be generated with `python backend/keys_setup.py` |
+| `VAPID_PRIVATE_KEY` | no | Turns on Web Push notifications |
+| `TIMEFRAME_FREE_FOR_ALL` | no | On by default (everyone gets Pro). Set to `0` to bring paid Pro back |
 | `ALLOW_INSECURE_OAUTH` | local only | Set to `1` only when running the OAuth flow over plain `http://localhost` |
 
 ### Frontend (Vercel) environment variables
